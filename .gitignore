@@ -1,0 +1,36 @@
+# Secret files - NEVER upload these!
+.env
+
+# Generated files
+processed_videos.json
+*.epub
+*.pdf
+*.html
+logs/
+newsletters/
+
+# Cache
+.transcript_cache/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# IDE
+.vscode/
+.idea/
+
+# Mac files
+.DS_Store

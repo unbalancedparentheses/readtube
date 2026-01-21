@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  readtube:
+    build: .
+    volumes:
+      - ./output:/app/output
+      - ./.transcript_cache:/app/.transcript_cache
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  # Web UI service (when implemented)
+  # web:
+  #   build: .
+  #   ports:
+  #     - "8080:8080"
+  #   volumes:
+  #     - ./output:/app/output
+  #   command: python web.py
