@@ -1,0 +1,87 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "readtube"
+version = "0.1.0"
+description = "Turn YouTube videos into beautifully typeset ebooks"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+authors = [
+    {name = "Federico Carrone", email = "mail@fcarrone.com"}
+]
+keywords = ["youtube", "ebook", "epub", "transcript", "yt-dlp"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Video",
+    "Topic :: Text Processing :: Markup",
+]
+dependencies = [
+    "yt-dlp>=2023.0.0",
+    "youtube-transcript-api>=0.6.0",
+    "ebooklib>=0.18",
+    "markdown>=3.4",
+]
+
+[project.optional-dependencies]
+pdf = ["weasyprint>=60.0"]
+tts = ["pyttsx3>=2.90", "gTTS>=2.3"]
+translate = ["googletrans==4.0.0-rc1"]
+llm = ["llama-cpp-python>=0.2.0"]
+claude = ["anthropic>=0.20.0"]
+all = [
+    "weasyprint>=60.0",
+    "pyttsx3>=2.90",
+    "gTTS>=2.3",
+    "googletrans==4.0.0-rc1",
+    "tqdm>=4.65",
+    "pyyaml>=6.0",
+    "llama-cpp-python>=0.2.0",
+    "anthropic>=0.20.0",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "pytest-mock>=3.10",
+]
+
+[project.scripts]
+readtube = "fetch_transcript:main"
+readtube-batch = "batch:main"
+readtube-write = "write_article:main"
+
+[project.urls]
+Homepage = "https://github.com/unbalancedparentheses/readtube"
+Repository = "https://github.com/unbalancedparentheses/readtube"
+Issues = "https://github.com/unbalancedparentheses/readtube/issues"
+
+[tool.setuptools]
+py-modules = [
+    "fetch_transcript",
+    "get_videos",
+    "get_transcripts",
+    "create_epub",
+    "config",
+    "themes",
+    "batch",
+    "rss",
+    "tts",
+    "images",
+    "translate",
+    "scheduler",
+    "async_fetch",
+    "integrations",
+    "llm",
+]

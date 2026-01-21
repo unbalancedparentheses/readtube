@@ -1,0 +1,31 @@
+# Core dependencies
+yt-dlp
+youtube-transcript-api
+ebooklib
+markdown
+
+# Optional: PDF output (requires system deps, see weasyprint docs)
+# weasyprint
+
+# Optional: Batch processing
+pyyaml  # For YAML batch configs
+tqdm    # Progress bars
+
+# Optional: Text-to-Speech
+# pyttsx3     # Offline TTS
+# gtts        # Google TTS
+# edge-tts    # Microsoft Edge TTS (high quality)
+
+# Optional: Local LLM drafting (llama.cpp)
+# llama-cpp-python
+# anthropic
+# openai
+
+# Optional: Readwise integration
+# requests  # Already a dependency of yt-dlp
+
+# Testing
+pytest>=7.0
+pytest-cov>=4.0
+pytest-mock>=3.0
+responses>=0.23

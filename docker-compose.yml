@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  readtube:
+    build: .
+    volumes:
+      - ./output:/app/output
+      - ./.transcript_cache:/app/.transcript_cache
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  # Web UI removed; CLI-only project
