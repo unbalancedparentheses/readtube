@@ -11,7 +11,27 @@ Uses yt-dlp instead of the YouTube API (no API key required).
 
 import sys
 import re
+from typing import Optional, List, Dict, Any, TypedDict
 import yt_dlp
+
+
+class ChapterInfo(TypedDict):
+    """Video chapter information."""
+    title: str
+    start_time: float
+    end_time: float
+
+
+class VideoInfo(TypedDict, total=False):
+    """Video metadata."""
+    title: str
+    video_id: str
+    description: str
+    channel: str
+    url: str
+    thumbnail: Optional[str]
+    duration: int
+    chapters: List[ChapterInfo]
 
 # ========================================
 # YOUR FAVORITE CHANNELS GO HERE
@@ -34,12 +54,12 @@ CHANNELS = [
 MIN_DURATION_SECONDS = 60
 
 
-def is_playlist_url(url):
+def is_playlist_url(url: str) -> bool:
     """Check if URL is a YouTube playlist."""
     return "playlist?list=" in url or "&list=" in url
 
 
-def get_video_info(video_url):
+def get_video_info(video_url: str) -> Optional[VideoInfo]:
     """
     Get info for a specific video URL.
     Returns video metadata including thumbnail URL and chapters, or None if it fails.
@@ -92,7 +112,7 @@ def get_video_info(video_url):
         return None
 
 
-def get_videos_from_playlist(playlist_url, max_videos=None):
+def get_videos_from_playlist(playlist_url: str, max_videos: Optional[int] = None) -> List[VideoInfo]:
     """
     Get all videos from a YouTube playlist.
 
@@ -179,7 +199,7 @@ def get_videos_from_playlist(playlist_url, max_videos=None):
     return videos
 
 
-def get_videos_from_urls(urls):
+def get_videos_from_urls(urls: List[str]) -> List[VideoInfo]:
     """
     Get video info for a list of URLs.
     Automatically detects and handles playlist URLs.
@@ -209,7 +229,7 @@ def get_videos_from_urls(urls):
     return videos
 
 
-def get_latest_video_from_channel(channel_handle):
+def get_latest_video_from_channel(channel_handle: str) -> Optional[VideoInfo]:
     """
     Get the most recent LONG-FORM video from a channel.
     Skips YouTube Shorts by checking video duration.
@@ -282,7 +302,7 @@ def get_latest_video_from_channel(channel_handle):
         return None
 
 
-def get_videos_from_channels(channels=None):
+def get_videos_from_channels(channels: Optional[List[str]] = None) -> List[VideoInfo]:
     """
     Fetch the latest long-form video from each channel.
     """
@@ -313,7 +333,7 @@ def get_videos_from_channels(channels=None):
     return videos
 
 
-def main(video_urls=None):
+def main(video_urls: Optional[List[str]] = None) -> List[VideoInfo]:
     """
     Main function - supports multiple modes:
     1. If video_urls contains playlist URLs, fetch all videos from playlists
