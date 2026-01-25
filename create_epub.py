@@ -587,6 +587,135 @@ def create_html(articles, output_path=None):
     return output_path
 
 
+def create_mobi(articles, output_path=None):
+    """
+    Create a MOBI ebook (Kindle format).
+
+    Requires either Calibre's ebook-convert or Amazon's kindlegen to be installed.
+
+    Args:
+        articles: List of dicts with keys: title, channel, url, article
+        output_path: Optional custom output path
+
+    Returns:
+        Path to the created MOBI file or None if failed
+    """
+    import shutil
+    import subprocess
+    import tempfile
+
+    # First create an EPUB
+    today = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    if output_path is None:
+        output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"youtube_digest_{today}.mobi")
+
+    # Create temp EPUB
+    with tempfile.NamedTemporaryFile(suffix=".epub", delete=False) as tmp:
+        epub_path = tmp.name
+
+    epub_result = create_epub_book(articles, epub_path)
+    if not epub_result:
+        return None
+
+    try:
+        # Try Calibre's ebook-convert first
+        if shutil.which('ebook-convert'):
+            result = subprocess.run([
+                'ebook-convert', epub_path, output_path
+            ], capture_output=True, timeout=120)
+
+            if result.returncode == 0:
+                print(f"MOBI created: {output_path}")
+                return output_path
+            else:
+                print(f"  ebook-convert failed: {result.stderr.decode()}")
+
+        # Try kindlegen
+        if shutil.which('kindlegen'):
+            result = subprocess.run([
+                'kindlegen', epub_path, '-o', os.path.basename(output_path)
+            ], capture_output=True, timeout=120)
+
+            if result.returncode in (0, 1):  # kindlegen returns 1 for warnings
+                # kindlegen outputs to same directory as input
+                temp_mobi = epub_path.replace('.epub', '.mobi')
+                if os.path.exists(temp_mobi):
+                    shutil.move(temp_mobi, output_path)
+                    print(f"MOBI created: {output_path}")
+                    return output_path
+
+        print("Error: No MOBI converter found. Install Calibre or kindlegen.")
+        print("  Calibre: https://calibre-ebook.com/")
+        print("  kindlegen: Download from Amazon (deprecated but still works)")
+        return None
+
+    except subprocess.TimeoutExpired:
+        print("  MOBI conversion timed out")
+        return None
+    except Exception as e:
+        print(f"  MOBI conversion failed: {e}")
+        return None
+    finally:
+        # Clean up temp EPUB
+        if os.path.exists(epub_path):
+            os.unlink(epub_path)
+
+
+def create_azw3(articles, output_path=None):
+    """
+    Create an AZW3 ebook (Kindle Format 8).
+
+    Requires Calibre's ebook-convert to be installed.
+
+    Args:
+        articles: List of dicts with keys: title, channel, url, article
+        output_path: Optional custom output path
+
+    Returns:
+        Path to the created AZW3 file or None if failed
+    """
+    import shutil
+    import subprocess
+    import tempfile
+
+    if not shutil.which('ebook-convert'):
+        print("Error: Calibre's ebook-convert required for AZW3. Install Calibre.")
+        return None
+
+    today = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    if output_path is None:
+        output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"youtube_digest_{today}.azw3")
+
+    # Create temp EPUB
+    with tempfile.NamedTemporaryFile(suffix=".epub", delete=False) as tmp:
+        epub_path = tmp.name
+
+    epub_result = create_epub_book(articles, epub_path)
+    if not epub_result:
+        return None
+
+    try:
+        result = subprocess.run([
+            'ebook-convert', epub_path, output_path
+        ], capture_output=True, timeout=120)
+
+        if result.returncode == 0:
+            print(f"AZW3 created: {output_path}")
+            return output_path
+        else:
+            print(f"  AZW3 conversion failed: {result.stderr.decode()}")
+            return None
+
+    except Exception as e:
+        print(f"  AZW3 conversion failed: {e}")
+        return None
+    finally:
+        if os.path.exists(epub_path):
+            os.unlink(epub_path)
+
+
 def create_ebook(articles, output_path=None, format="epub"):
     """
     Create an ebook in the specified format.
@@ -594,7 +723,7 @@ def create_ebook(articles, output_path=None, format="epub"):
     Args:
         articles: List of article dicts
         output_path: Optional output path
-        format: "epub", "pdf", or "html"
+        format: "epub", "pdf", "html", "mobi", or "azw3"
 
     Returns:
         Path to created file
@@ -603,6 +732,10 @@ def create_ebook(articles, output_path=None, format="epub"):
         return create_pdf(articles, output_path)
     elif format == "html":
         return create_html(articles, output_path)
+    elif format == "mobi":
+        return create_mobi(articles, output_path)
+    elif format == "azw3":
+        return create_azw3(articles, output_path)
     else:
         return create_epub_book(articles, output_path)
 
@@ -622,6 +755,8 @@ def main():
     parser.add_argument("--output-dir", help="Output directory for generated files")
     parser.add_argument("--pdf", action="store_true", help="Output as PDF instead of EPUB")
     parser.add_argument("--html", action="store_true", help="Output as HTML instead of EPUB")
+    parser.add_argument("--mobi", action="store_true", help="Output as MOBI (Kindle) instead of EPUB")
+    parser.add_argument("--azw3", action="store_true", help="Output as AZW3 (Kindle Format 8) instead of EPUB")
 
     args = parser.parse_args()
 
@@ -641,6 +776,10 @@ def main():
         output_format = "pdf"
     elif args.html:
         output_format = "html"
+    elif args.mobi:
+        output_format = "mobi"
+    elif args.azw3:
+        output_format = "azw3"
     else:
         output_format = "epub"
 

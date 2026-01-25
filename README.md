@@ -8,7 +8,7 @@ Readtube extracts transcripts from YouTube videos and transforms them into well-
 
 **Core:**
 - **Video sources**: Single videos, playlists, or channel feeds
-- **Output formats**: EPUB, PDF, HTML
+- **Output formats**: EPUB, PDF, HTML, MOBI, AZW3 (Kindle)
 - **Video chapters**: Extracted to help structure articles
 - **Thumbnail covers**: Video thumbnails become book covers
 - **Multiple languages**: Select preferred transcript language
@@ -103,6 +103,12 @@ create_ebook(articles, format="pdf")
 
 # Create HTML
 create_ebook(articles, format="html")
+
+# Create MOBI (requires Calibre or kindlegen)
+create_ebook(articles, format="mobi")
+
+# Create AZW3 (requires Calibre)
+create_ebook(articles, format="azw3")
 ```
 
 ### Batch Processing
