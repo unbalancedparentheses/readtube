@@ -611,6 +611,188 @@ class TestWeb:
         response = client.get('/api/jobs/nonexistent')
         assert response.status_code == 404
 
+    def test_download_not_found(self, client):
+        """Test download returns 404 for missing job."""
+        response = client.get('/api/jobs/nonexistent/download')
+        assert response.status_code == 404
+
+    def test_download_path_traversal_protection(self, client):
+        """Test download endpoint blocks path traversal attacks."""
+        from web import jobs, _save_jobs
+
+        # Create job with malicious path
+        jobs['malicious'] = {
+            'id': 'malicious',
+            'title': 'Test',
+            'channel': 'Test',
+            'word_count': 100,
+            'reading_time': 1,
+            'status': 'done',
+            'output_path': '/etc/passwd',
+            'created_at': '2024-01-01'
+        }
+
+        response = client.get('/api/jobs/malicious/download')
+        assert response.status_code == 400
+
+        # Cleanup
+        del jobs['malicious']
+
+    def test_build_article_markdown(self):
+        """Test _build_article_markdown creates proper markdown."""
+        from web import _build_article_markdown
+
+        job = {
+            'title': 'Test Video',
+            'channel': 'Test Channel',
+            'description': 'A description',
+            'transcript': 'The transcript content.',
+            'summary_mode': False
+        }
+
+        result = _build_article_markdown(job)
+        assert '# Test Video' in result
+        assert '**Channel:** Test Channel' in result
+        assert '## Description' in result
+        assert '## Transcript' in result
+        assert 'The transcript content.' in result
+
+    def test_build_article_markdown_summary_mode(self):
+        """Test _build_article_markdown in summary mode."""
+        from web import _build_article_markdown
+
+        # Create long transcript
+        long_text = ' '.join(['word'] * 2000)
+        job = {
+            'title': 'Test',
+            'channel': 'Channel',
+            'description': '',
+            'transcript': long_text,
+            'summary_mode': True
+        }
+
+        result = _build_article_markdown(job)
+        # Summary mode should truncate
+        assert len(result) < len(long_text) + 200
+
+    def test_build_article_markdown_no_description(self):
+        """Test _build_article_markdown without description."""
+        from web import _build_article_markdown
+
+        job = {
+            'title': 'Test',
+            'channel': 'Channel',
+            'description': '',
+            'transcript': 'Content',
+            'summary_mode': False
+        }
+
+        result = _build_article_markdown(job)
+        assert '## Description' not in result
+
+    def test_output_dir_creation(self):
+        """Test _output_dir creates directory."""
+        from web import _output_dir
+
+        output = _output_dir()
+        assert output.exists()
+        assert output.is_dir()
+
+    def test_jobs_api_with_jobs(self, client):
+        """Test jobs API returns job list correctly."""
+        from web import jobs
+
+        jobs.clear()
+        jobs['test1'] = {
+            'id': 'test1',
+            'title': 'Video 1',
+            'channel': 'Channel 1',
+            'word_count': 100,
+            'reading_time': 1,
+            'status': 'done',
+            'created_at': '2024-01-01T00:00:00'
+        }
+        jobs['test2'] = {
+            'id': 'test2',
+            'title': 'Video 2',
+            'channel': 'Channel 2',
+            'word_count': 200,
+            'reading_time': 2,
+            'status': 'processing',
+            'created_at': '2024-01-02T00:00:00'
+        }
+
+        response = client.get('/api/jobs')
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert len(data) == 2
+        # Should be sorted by created_at descending
+        assert data[0]['id'] == 'test2'
+        assert data[1]['id'] == 'test1'
+
+        # Cleanup
+        jobs.clear()
+
+    def test_job_detail_success(self, client):
+        """Test job detail returns full job data."""
+        from web import jobs
+
+        jobs.clear()
+        jobs['detail_test'] = {
+            'id': 'detail_test',
+            'title': 'Detail Test',
+            'channel': 'Test Channel',
+            'transcript': 'Full transcript',
+            'word_count': 50,
+            'reading_time': 1,
+            'status': 'done',
+            'created_at': '2024-01-01'
+        }
+
+        response = client.get('/api/jobs/detail_test')
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data['id'] == 'detail_test'
+        assert data['title'] == 'Detail Test'
+        assert data['transcript'] == 'Full transcript'
+
+        # Cleanup
+        jobs.clear()
+
+    def test_job_persistence(self, tmp_path):
+        """Test jobs are persisted to disk."""
+        from web import _save_jobs, _load_jobs, JOBS_FILE
+        import web
+
+        # Save original
+        original_file = web.JOBS_FILE
+
+        try:
+            # Use temp file
+            web.JOBS_FILE = tmp_path / "test_jobs.json"
+
+            test_jobs = {
+                'persist_test': {
+                    'id': 'persist_test',
+                    'title': 'Persist Test',
+                    'status': 'done',
+                    'created_at': '2024-01-01'
+                }
+            }
+
+            _save_jobs(test_jobs)
+            loaded = _load_jobs()
+            assert 'persist_test' in loaded
+            assert loaded['persist_test']['title'] == 'Persist Test'
+        finally:
+            web.JOBS_FILE = original_file
+
+    def test_html_contains_escape_function(self, client):
+        """Test that HTML template includes XSS protection."""
+        response = client.get('/')
+        assert b'escapeHtml' in response.data
+        assert b'textContent' in response.data
+
 
 @pytest.fixture
 def temp_dir():
@@ -618,3 +800,293 @@ def temp_dir():
     dirpath = tempfile.mkdtemp()
     yield dirpath
     shutil.rmtree(dirpath)
+
+
+class TestScheduler:
+    """Tests for scheduler.py module."""
+
+    def test_fetch_history_init(self, tmp_path):
+        """Test FetchHistory initialization."""
+        from scheduler import FetchHistory
+
+        history_path = tmp_path / "history.json"
+        history = FetchHistory(path=history_path)
+
+        assert history.path == history_path
+        assert history.history == {'fetched': {}, 'last_run': None}
+
+    def test_fetch_history_mark_fetched(self, tmp_path):
+        """Test marking videos as fetched."""
+        from scheduler import FetchHistory
+
+        history = FetchHistory(path=tmp_path / "history.json")
+        history.mark_fetched('video123', {'title': 'Test Video'})
+
+        assert history.is_fetched('video123')
+        assert not history.is_fetched('video456')
+
+    def test_fetch_history_persistence(self, tmp_path):
+        """Test history is persisted to disk."""
+        from scheduler import FetchHistory
+
+        history_path = tmp_path / "history.json"
+        history1 = FetchHistory(path=history_path)
+        history1.mark_fetched('video123')
+
+        # Load in new instance
+        history2 = FetchHistory(path=history_path)
+        assert history2.is_fetched('video123')
+
+    def test_fetch_history_last_run(self, tmp_path):
+        """Test last run tracking."""
+        from scheduler import FetchHistory
+
+        history = FetchHistory(path=tmp_path / "history.json")
+        assert history.get_last_run() is None
+
+        history.update_last_run()
+        last_run = history.get_last_run()
+        assert last_run is not None
+
+    def test_fetch_history_stats(self, tmp_path):
+        """Test fetch statistics."""
+        from scheduler import FetchHistory
+
+        history = FetchHistory(path=tmp_path / "history.json")
+        history.mark_fetched('v1')
+        history.mark_fetched('v2')
+        history.update_last_run()
+
+        stats = history.get_stats()
+        assert stats['total_fetched'] == 2
+        assert stats['last_run'] is not None
+
+    def test_scheduler_init(self, tmp_path):
+        """Test Scheduler initialization."""
+        from scheduler import Scheduler
+
+        config_path = tmp_path / "config.yaml"
+        config_path.write_text("jobs: []")
+
+        scheduler = Scheduler(config_path)
+        assert scheduler.config_path == config_path
+
+    def test_create_systemd_service(self, tmp_path):
+        """Test systemd service generation."""
+        from scheduler import create_systemd_service
+
+        config_path = str(tmp_path / "config.yaml")
+        service = create_systemd_service(config_path, interval=3600)
+
+        assert '[Unit]' in service
+        assert '[Service]' in service
+        assert '[Install]' in service
+        assert 'readtube' in service.lower()
+        assert '3600' in service
+
+    def test_create_launchd_plist(self, tmp_path):
+        """Test launchd plist generation."""
+        from scheduler import create_launchd_plist
+
+        config_path = str(tmp_path / "config.yaml")
+        plist = create_launchd_plist(config_path, interval=1800)
+
+        assert '<?xml' in plist
+        assert 'plist' in plist
+        assert 'com.readtube.scheduler' in plist
+        assert '1800' in plist
+
+
+class TestAsyncFetch:
+    """Tests for async_fetch.py module."""
+
+    def test_imports(self):
+        """Test async_fetch module imports."""
+        from async_fetch import fetch_videos_async, fetch_video_async
+        assert callable(fetch_videos_async)
+        assert callable(fetch_video_async)
+
+    def test_fetch_videos_async_empty_list(self):
+        """Test async fetch with empty URL list returns empty list."""
+        import asyncio
+        from async_fetch import fetch_videos_async
+
+        result = asyncio.run(fetch_videos_async([]))
+        assert result == []
+
+
+class TestImages:
+    """Tests for images.py module."""
+
+    def test_imports(self):
+        """Test images module imports."""
+        from images import (
+            get_video_thumbnails,
+            get_best_thumbnail,
+            extract_frames,
+            get_chapter_thumbnails
+        )
+        assert callable(get_video_thumbnails)
+        assert callable(get_best_thumbnail)
+        assert callable(extract_frames)
+        assert callable(get_chapter_thumbnails)
+
+    def test_get_best_thumbnail_invalid_url(self):
+        """Test get_best_thumbnail with invalid URL returns None."""
+        from images import get_best_thumbnail
+
+        result = get_best_thumbnail("https://invalid-url.example.com/video")
+        assert result is None
+
+    def test_get_chapter_thumbnails_invalid_url(self):
+        """Test get_chapter_thumbnails with invalid URL."""
+        from images import get_chapter_thumbnails
+
+        result = get_chapter_thumbnails("https://invalid-url.example.com/video")
+        # Should return empty dict or handle error gracefully
+        assert result == {} or result == []
+
+
+class TestTranslate:
+    """Tests for translate.py module."""
+
+    def test_imports(self):
+        """Test translate module imports."""
+        from translate import (
+            translate_text,
+            translate_transcript,
+            get_available_backends,
+            TranslationBackend,
+            BACKENDS
+        )
+        assert callable(translate_text)
+        assert callable(translate_transcript)
+        assert callable(get_available_backends)
+        assert isinstance(BACKENDS, dict)
+
+    def test_get_available_backends(self):
+        """Test listing available translation backends."""
+        from translate import get_available_backends
+
+        backends = get_available_backends()
+        assert isinstance(backends, list)
+        # At least one backend should exist (libre is always in BACKENDS)
+
+    def test_backends_registry(self):
+        """Test that backend registry contains expected backends."""
+        from translate import BACKENDS
+
+        assert 'google' in BACKENDS or 'libre' in BACKENDS or 'deepl' in BACKENDS
+
+    def test_translation_backend_interface(self):
+        """Test TranslationBackend base class interface."""
+        from translate import TranslationBackend
+
+        # Verify it's an abstract class with required methods
+        import inspect
+        assert inspect.isabstract(TranslationBackend)
+        assert hasattr(TranslationBackend, 'translate')
+        assert hasattr(TranslationBackend, 'is_available')
+        assert hasattr(TranslationBackend, 'supported_languages')
+
+    def test_translate_text_no_backend(self):
+        """Test translate_text returns None when no backend available."""
+        from translate import translate_text
+
+        # With an invalid backend, should return None
+        result = translate_text("Hello", target_lang="es", backend="nonexistent")
+        assert result is None
+
+    def test_libre_translate_backend_exists(self):
+        """Test LibreTranslate backend class exists."""
+        from translate import BACKENDS
+
+        if 'libre' in BACKENDS:
+            backend_class = BACKENDS['libre']
+            backend = backend_class()
+            assert hasattr(backend, 'translate')
+            assert hasattr(backend, 'is_available')
+            assert hasattr(backend, 'supported_languages')
+
+
+class TestCreateEpubSecurity:
+    """Security tests for create_epub.py."""
+
+    def test_html_escaping(self):
+        """Test that HTML content is properly escaped."""
+        from create_epub import _escape_html
+
+        dangerous = '<script>alert("xss")</script>'
+        safe = _escape_html(dangerous)
+
+        assert '<script>' not in safe
+        assert '&lt;script&gt;' in safe
+
+    def test_html_escaping_attributes(self):
+        """Test escaping of HTML attributes."""
+        from create_epub import _escape_html
+
+        dangerous = '"><img src=x onerror=alert(1)>'
+        safe = _escape_html(dangerous)
+
+        assert 'onerror' not in safe or '&' in safe
+
+    def test_epub_with_malicious_title(self, tmp_path):
+        """Test EPUB creation with potentially malicious title."""
+        from create_epub import create_ebook
+
+        articles = [{
+            'title': '<script>alert("xss")</script>',
+            'channel': 'Test & Co <test>',
+            'article': 'Normal content',
+        }]
+
+        output_path = tmp_path / "test.epub"
+        result = create_ebook(articles, output_path=str(output_path), format='epub')
+
+        assert result is not None
+        # Verify file was created
+        assert output_path.exists()
+
+
+class TestGetTranscriptsSecurity:
+    """Security tests for get_transcripts.py."""
+
+    def test_segment_text_handles_dict(self):
+        """Test _segment_text handles dict input."""
+        from get_transcripts import _segment_text
+
+        segment = {'text': 'Hello world', 'start': 0.0}
+        result = _segment_text(segment)
+        assert result == 'Hello world'
+
+    def test_segment_text_handles_object(self):
+        """Test _segment_text handles object input."""
+        from get_transcripts import _segment_text
+
+        class MockSegment:
+            text = 'Hello object'
+
+        result = _segment_text(MockSegment())
+        assert result == 'Hello object'
+
+    def test_segment_start_handles_dict(self):
+        """Test _segment_start handles dict input."""
+        from get_transcripts import _segment_start
+
+        segment = {'text': 'Hello', 'start': 10.5}
+        result = _segment_start(segment)
+        assert result == 10.5
+
+    def test_segment_duration_handles_dict(self):
+        """Test _segment_duration handles dict input."""
+        from get_transcripts import _segment_duration
+
+        segment = {'text': 'Hello', 'duration': 5.0}
+        result = _segment_duration(segment)
+        assert result == 5.0
+
+    def test_list_transcripts_wrapper(self):
+        """Test _list_transcripts compatibility wrapper exists."""
+        from get_transcripts import _list_transcripts
+        assert callable(_list_transcripts)
