@@ -4,26 +4,44 @@ Supports:
 - Language selection (auto, manual, or preferred language)
 - Speaker labels preservation when available
 - Caching of fetched transcripts
+- Timestamps in output
 """
 
 import os
 import time
 import json
 import hashlib
+from typing import Optional, List, Dict, Any, TypedDict
 from youtube_transcript_api import YouTubeTranscriptApi
+
+
+class LanguageInfo(TypedDict):
+    """Transcript language information."""
+    code: str
+    name: str
+    is_generated: bool
+    is_translatable: bool
+
+
+class TranscriptSegment(TypedDict):
+    """A single transcript segment with timing."""
+    text: str
+    start: float
+    duration: float
+    timestamp: str
 
 # Cache directory for transcripts
 CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".transcript_cache")
 
 
-def get_cache_path(video_id, lang=None):
+def get_cache_path(video_id: str, lang: Optional[str] = None) -> str:
     """Get cache file path for a video transcript."""
     cache_key = f"{video_id}_{lang or 'auto'}"
     filename = hashlib.md5(cache_key.encode()).hexdigest() + ".json"
     return os.path.join(CACHE_DIR, filename)
 
 
-def load_from_cache(video_id, lang=None):
+def load_from_cache(video_id: str, lang: Optional[str] = None) -> Optional[str]:
     """Load transcript from cache if available."""
     cache_path = get_cache_path(video_id, lang)
     if os.path.exists(cache_path):
@@ -38,7 +56,7 @@ def load_from_cache(video_id, lang=None):
     return None
 
 
-def save_to_cache(video_id, transcript, lang=None):
+def save_to_cache(video_id: str, transcript: str, lang: Optional[str] = None) -> None:
     """Save transcript to cache."""
     os.makedirs(CACHE_DIR, exist_ok=True)
     cache_path = get_cache_path(video_id, lang)
@@ -54,7 +72,7 @@ def save_to_cache(video_id, transcript, lang=None):
         pass  # Cache failures are not critical
 
 
-def list_available_languages(video_id):
+def list_available_languages(video_id: str) -> List[LanguageInfo]:
     """
     List all available transcript languages for a video.
 
@@ -81,7 +99,7 @@ def list_available_languages(video_id):
         return []
 
 
-def format_timestamp(seconds):
+def format_timestamp(seconds: float) -> str:
     """Format seconds as HH:MM:SS or MM:SS."""
     hours = int(seconds // 3600)
     minutes = int((seconds % 3600) // 60)
@@ -91,7 +109,13 @@ def format_timestamp(seconds):
     return f"{minutes}:{secs:02d}"
 
 
-def get_transcript(video_id, lang=None, preserve_speakers=False, use_cache=True, include_timestamps=False):
+def get_transcript(
+    video_id: str,
+    lang: Optional[str] = None,
+    preserve_speakers: bool = False,
+    use_cache: bool = True,
+    include_timestamps: bool = False
+) -> Optional[str]:
     """
     Get the transcript for a YouTube video.
 
@@ -196,7 +220,11 @@ def get_transcript(video_id, lang=None, preserve_speakers=False, use_cache=True,
         return None
 
 
-def get_transcripts_for_videos(videos, lang=None, preserve_speakers=False):
+def get_transcripts_for_videos(
+    videos: List[Dict[str, Any]],
+    lang: Optional[str] = None,
+    preserve_speakers: bool = False
+) -> List[Dict[str, Any]]:
     """
     Get transcripts for a list of videos.
 
@@ -241,7 +269,7 @@ def get_transcripts_for_videos(videos, lang=None, preserve_speakers=False):
     return videos_with_transcripts
 
 
-def get_transcript_with_timestamps(video_id, lang=None):
+def get_transcript_with_timestamps(video_id: str, lang: Optional[str] = None) -> Optional[List[TranscriptSegment]]:
     """
     Get transcript as a list of segments with timestamps.
 
@@ -291,7 +319,7 @@ def get_transcript_with_timestamps(video_id, lang=None):
         return None
 
 
-def clear_cache():
+def clear_cache() -> None:
     """Clear the transcript cache."""
     import shutil
     if os.path.exists(CACHE_DIR):
