@@ -7,6 +7,7 @@ Note: These tests make real network requests. Run with:
 """
 
 import os
+import socket
 import pytest
 import tempfile
 import shutil
@@ -22,6 +23,10 @@ class TestEndToEndPipeline:
     @pytest.fixture(autouse=True)
     def setup(self):
         """Setup test environment."""
+        try:
+            socket.getaddrinfo("www.youtube.com", 443)
+        except OSError:
+            pytest.skip("Network/DNS unavailable for e2e YouTube tests")
         self.temp_dir = tempfile.mkdtemp()
         yield
         shutil.rmtree(self.temp_dir)

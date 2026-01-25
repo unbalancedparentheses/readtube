@@ -47,17 +47,17 @@ def _get_cache_settings() -> Tuple[bool, int]:
 
 def _list_transcripts(video_id: str):
     """Get transcript list with compatibility across youtube-transcript-api versions."""
-    if hasattr(YouTubeTranscriptApi, "list_transcripts"):
-        try:
-            return YouTubeTranscriptApi.list_transcripts(video_id)
-        except Exception:
-            pass
     try:
         api = YouTubeTranscriptApi()
         if hasattr(api, "list"):
             return api.list(video_id)
     except Exception:
         pass
+    if hasattr(YouTubeTranscriptApi, "list_transcripts"):
+        try:
+            return YouTubeTranscriptApi.list_transcripts(video_id)
+        except Exception:
+            pass
     # Final fallback to classmethod if present
     if hasattr(YouTubeTranscriptApi, "list_transcripts"):
         return YouTubeTranscriptApi.list_transcripts(video_id)
