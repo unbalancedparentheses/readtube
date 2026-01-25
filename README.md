@@ -28,6 +28,7 @@ Readtube extracts transcripts from YouTube videos and transforms them into well-
 - **Progress indicators**: tqdm progress bars for batch processing
 - **Retry logic**: Automatic retry with exponential backoff
 - **Image extraction**: Extract thumbnails and frames at timestamps
+- **Translation**: Translate transcripts (Google, DeepL, LibreTranslate)
 
 ## Installation
 
@@ -186,6 +187,23 @@ python images.py "URL" --interval 60 --max-frames 10
 python images.py "URL" --chapters
 ```
 
+### Translation
+
+```bash
+# Translate text to Spanish
+python translate.py --text "Hello world" --to spanish
+
+# Translate a file to German
+python translate.py transcript.txt --to de --output transcript_de.txt
+
+# Use specific backend (google, deepl, libre)
+python translate.py transcript.txt --to fr --backend deepl
+
+# List available backends and languages
+python translate.py --list-backends
+python translate.py --list-languages
+```
+
 ## Typography
 
 Ebooks are typeset following [Practical Typography](https://practicaltypography.com/) principles:
@@ -220,6 +238,7 @@ readtube/
 ├── themes.py             # Custom CSS themes
 ├── web.py                # Flask web UI
 ├── rss.py                # RSS/Atom feed generation
+├── translate.py          # Translation support
 ├── tts.py                # Text-to-speech audio
 ├── images.py             # Image/frame extraction
 ├── integrations.py       # Readwise integration
