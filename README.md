@@ -30,6 +30,7 @@ Readtube extracts transcripts from YouTube videos and transforms them into well-
 - **Image extraction**: Extract thumbnails and frames at timestamps
 - **Translation**: Translate transcripts (Google, DeepL, LibreTranslate)
 - **Scheduled fetching**: Cron-like scheduling with systemd/launchd support
+- **Type hints**: Full type annotations throughout codebase
 
 ## Installation
 
