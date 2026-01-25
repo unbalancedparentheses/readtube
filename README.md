@@ -27,6 +27,7 @@ Readtube extracts transcripts from YouTube videos and transforms them into well-
 - **Readwise integration**: Send articles and highlights to Readwise
 - **Progress indicators**: tqdm progress bars for batch processing
 - **Retry logic**: Automatic retry with exponential backoff
+- **Image extraction**: Extract thumbnails and frames at timestamps
 
 ## Installation
 
@@ -169,6 +170,22 @@ export READWISE_TOKEN="your_token"
 python -c "from integrations import send_to_readwise; send_to_readwise(article)"
 ```
 
+### Image Extraction
+
+```bash
+# Download all thumbnails
+python images.py "https://youtube.com/watch?v=VIDEO_ID" --thumbnails
+
+# Extract frames at specific timestamps
+python images.py "URL" --timestamps 0:30,1:00,2:30 --output ./frames
+
+# Extract frames at 60 second intervals
+python images.py "URL" --interval 60 --max-frames 10
+
+# Extract frame at each chapter start
+python images.py "URL" --chapters
+```
+
 ## Typography
 
 Ebooks are typeset following [Practical Typography](https://practicaltypography.com/) principles:
@@ -204,6 +221,7 @@ readtube/
 ├── web.py                # Flask web UI
 ├── rss.py                # RSS/Atom feed generation
 ├── tts.py                # Text-to-speech audio
+├── images.py             # Image/frame extraction
 ├── integrations.py       # Readwise integration
 ├── SKILL.md              # Claude Code skill definition
 ├── tests/                # Test suite
