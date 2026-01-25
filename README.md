@@ -1,89 +1,235 @@
-# Readtube
+<p align="center">
+  <h1 align="center">Readtube</h1>
+  <p align="center">
+    <strong>Turn YouTube videos into beautifully typeset ebooks</strong>
+  </p>
+  <p align="center">
+    <a href="#quick-start">Quick Start</a> •
+    <a href="#features">Features</a> •
+    <a href="#installation">Installation</a> •
+    <a href="#usage">Usage</a>
+  </p>
+</p>
 
-Turn YouTube videos into beautifully typeset ebooks.
+---
 
-Readtube extracts transcripts from YouTube videos and transforms them into well-written, magazine-style articles. Output as EPUB for e-readers, PDF for printing, or HTML for the web.
+**Readtube** extracts transcripts from YouTube videos and transforms them into polished, magazine-style articles. Output as EPUB for e-readers, PDF for printing, or HTML for the web.
+
+No YouTube API key required. Just paste a URL and get a beautifully formatted ebook.
+
+```bash
+python fetch_transcript.py "https://www.youtube.com/watch?v=VIDEO_ID"
+```
+
+## Quick Start
+
+```bash
+# Clone and install
+git clone https://github.com/unbalancedparentheses/readtube.git
+cd readtube && make install
+
+# Convert a video to EPUB
+python fetch_transcript.py "https://youtube.com/watch?v=dQw4w9WgXcQ"
+
+# Convert a playlist
+python fetch_transcript.py "https://youtube.com/playlist?list=PLxyz" --max 5
+
+# Get a summary instead of full article
+python fetch_transcript.py "URL" --summary
+```
 
 ## Features
 
-**Core:**
-- **Video sources**: Single videos, playlists, or channel feeds
-- **Output formats**: EPUB, PDF, HTML, MOBI, AZW3 (Kindle)
-- **Video chapters**: Extracted to help structure articles
-- **Thumbnail covers**: Video thumbnails become book covers
-- **Multiple languages**: Select preferred transcript language
-- **Summary mode**: Short summaries instead of full articles
-- **Transcript caching**: 7-day cache for faster repeated requests
-- **Timestamps**: Include timestamps in transcripts for reference
-- **Professional typography**: Based on [Practical Typography](https://practicaltypography.com/)
-- **No API keys**: Uses yt-dlp (no YouTube API key needed)
+| Feature | Description |
+|---------|-------------|
+| **Multiple Sources** | Single videos, playlists, or entire channels |
+| **Output Formats** | EPUB, PDF, HTML, MOBI, AZW3 (Kindle) |
+| **Smart Chapters** | Video chapters become article sections |
+| **Cover Art** | Video thumbnails as book covers |
+| **Multi-language** | Select preferred transcript language |
+| **Caching** | 7-day transcript cache for speed |
+| **No API Keys** | Uses yt-dlp, no YouTube API needed |
 
-**Advanced:**
-- **Batch processing**: Process multiple videos from YAML/JSON config
-- **Custom themes**: Built-in themes (default, dark, modern, minimal) or custom CSS
-- **RSS/Atom feeds**: Generate podcast-style feeds from articles
-- **Text-to-speech**: Audio narration (pyttsx3, gTTS, Edge TTS, macOS say)
-- **Readwise integration**: Send articles and highlights to Readwise
-- **Progress indicators**: tqdm progress bars for batch processing
-- **Retry logic**: Automatic retry with exponential backoff
-- **Image extraction**: Extract thumbnails and frames at timestamps
-- **Translation**: Translate transcripts (Google, DeepL, LibreTranslate)
-- **Scheduled fetching**: Cron-like scheduling with systemd/launchd support
-- **Type hints**: Full type annotations throughout codebase
-- **Async support**: Async video/transcript fetching for better performance
+### Typography
+
+Ebooks follow [Practical Typography](https://practicaltypography.com/) principles:
+
+- **Line length**: 65 characters (optimal readability)
+- **Line height**: 1.4 (comfortable reading)
+- **Fonts**: Charter, Georgia (elegant serifs)
+- **Paragraphs**: First-line indents, proper spacing
+
+### Advanced Features
+
+<details>
+<summary><strong>Batch Processing</strong></summary>
+
+Process multiple videos from a config file:
+
+```yaml
+# batch.yaml
+output_dir: ./ebooks
+default_format: epub
+
+jobs:
+  - url: https://youtube.com/watch?v=VIDEO1
+  - url: https://youtube.com/watch?v=VIDEO2
+    output_format: pdf
+  - url: https://youtube.com/playlist?list=PLAYLIST
+    summary_mode: true
+```
+
+```bash
+python batch.py batch.yaml
+```
+</details>
+
+<details>
+<summary><strong>Custom Themes</strong></summary>
+
+Built-in themes: `default`, `dark`, `modern`, `minimal`
+
+```python
+from themes import get_theme, list_themes
+
+print(list_themes())  # ['default', 'dark', 'modern', 'minimal']
+theme = get_theme("dark")
+```
+</details>
+
+<details>
+<summary><strong>RSS/Atom Feeds</strong></summary>
+
+Generate podcast-style feeds from your articles:
+
+```python
+from rss import generate_rss_feed, generate_atom_feed
+
+generate_rss_feed(articles, output_path="feed.xml")
+generate_atom_feed(articles, output_path="feed.atom")
+```
+</details>
+
+<details>
+<summary><strong>Text-to-Speech</strong></summary>
+
+Convert articles to audio:
+
+```bash
+python tts.py article.md --output article.mp3 --backend edge
+python tts.py --list-backends  # pyttsx3, gtts, edge, macos
+```
+</details>
+
+<details>
+<summary><strong>Translation</strong></summary>
+
+Translate transcripts to other languages:
+
+```bash
+python translate.py transcript.txt --to spanish --output es.txt
+python translate.py --text "Hello" --to de --backend google
+```
+</details>
+
+<details>
+<summary><strong>Scheduled Fetching</strong></summary>
+
+Automate fetching on a schedule:
+
+```bash
+# Every hour
+python scheduler.py batch.yaml --interval 3600
+
+# Daily at 8am
+python scheduler.py batch.yaml --cron "0 8 * * *"
+
+# Generate systemd service
+python scheduler.py batch.yaml --generate-systemd > readtube.service
+```
+</details>
+
+<details>
+<summary><strong>Image Extraction</strong></summary>
+
+Extract thumbnails and frames:
+
+```bash
+python images.py "URL" --thumbnails
+python images.py "URL" --timestamps 0:30,1:00,2:30
+python images.py "URL" --chapters
+```
+</details>
+
+<details>
+<summary><strong>Readwise Integration</strong></summary>
+
+Send articles to Readwise:
+
+```bash
+export READWISE_TOKEN="your_token"
+python -c "from integrations import send_to_readwise; send_to_readwise(article)"
+```
+</details>
 
 ## Installation
 
+### Standard
+
 ```bash
-# Clone
 git clone https://github.com/unbalancedparentheses/readtube.git
 cd readtube
-
-# Install
 make install
+```
 
-# For PDF support (requires system libraries)
+### With PDF Support
+
+PDF generation requires system libraries (Pango, Cairo, GLib):
+
+```bash
+# macOS
+brew install pango cairo glib
+
+# Ubuntu/Debian
+sudo apt install libpango-1.0-0 libcairo2 libglib2.0-0
+
+# Then install Python deps
 make install-pdf
+```
 
-# Or use Nix (handles all dependencies)
+### With Nix
+
+Nix handles all dependencies automatically:
+
+```bash
 make shell
 ```
 
 ## Usage
 
-### With Claude Code
-
-The easiest way to use Readtube is as a Claude Code skill:
-
-```
-Create an ebook from https://www.youtube.com/watch?v=VIDEO_ID
-```
-
-Claude will fetch the transcript, write an article, and generate the ebook.
-
 ### Command Line
 
 ```bash
-# Fetch transcript from a video
-python fetch_transcript.py "https://www.youtube.com/watch?v=VIDEO_ID"
+# Basic usage
+python fetch_transcript.py "https://youtube.com/watch?v=VIDEO_ID"
 
-# Fetch from a playlist (max 5 videos)
-python fetch_transcript.py "https://www.youtube.com/playlist?list=PLAYLIST_ID" --max 5
+# Playlist (limit to 5 videos)
+python fetch_transcript.py "https://youtube.com/playlist?list=ID" --max 5
 
-# List available languages
-python fetch_transcript.py "URL" --list-languages
-
-# Fetch in Spanish
+# Specific language
 python fetch_transcript.py "URL" --lang es
 
-# Request summary mode
+# Summary mode
 python fetch_transcript.py "URL" --summary
 
 # Custom output directory
 python fetch_transcript.py "URL" --output-dir ./ebooks
+
+# List available languages
+python fetch_transcript.py "URL" --list-languages
 ```
 
-### Programmatic
+### Python API
 
 ```python
 from create_epub import create_ebook
@@ -92,186 +238,52 @@ articles = [{
     "title": "Video Title",
     "channel": "Channel Name",
     "url": "https://youtube.com/watch?v=...",
-    "thumbnail": "https://...",  # Optional: becomes cover
-    "article": "# Markdown article content..."
+    "thumbnail": "https://...",
+    "article": "# Your markdown content..."
 }]
 
-# Create EPUB
-create_ebook(articles, format="epub")
-
-# Create PDF (requires weasyprint + system deps)
-create_ebook(articles, format="pdf")
-
-# Create HTML
-create_ebook(articles, format="html")
-
-# Create MOBI (requires Calibre or kindlegen)
-create_ebook(articles, format="mobi")
-
-# Create AZW3 (requires Calibre)
-create_ebook(articles, format="azw3")
+create_ebook(articles, format="epub")  # or pdf, html, mobi, azw3
 ```
 
-### Batch Processing
+### With Claude Code
 
-```bash
-# Create a batch config (batch.yaml)
-cat > batch.yaml << EOF
-output_dir: ./ebooks
-default_format: epub
+Use Readtube as a Claude Code skill:
 
-jobs:
-  - url: https://www.youtube.com/watch?v=VIDEO1
-  - url: https://www.youtube.com/watch?v=VIDEO2
-    output_format: pdf
-  - url: https://www.youtube.com/playlist?list=PLAYLIST
-    summary_mode: true
-EOF
-
-# Process batch
-python batch.py batch.yaml
+```
+Create an ebook from https://www.youtube.com/watch?v=VIDEO_ID
 ```
 
-
-### Custom Themes
-
-```python
-from themes import get_theme, list_themes
-
-# List available themes
-print(list_themes())  # default, dark, modern, minimal
-
-# Get a theme
-theme = get_theme("dark")
-```
-
-### RSS/Atom Feeds
-
-```python
-from rss import generate_rss_feed, generate_atom_feed
-
-articles = [...]  # Your articles
-generate_rss_feed(articles, output_path="feed.xml")
-generate_atom_feed(articles, output_path="feed.atom")
-```
-
-### Text-to-Speech
-
-```bash
-# List available TTS backends
-python tts.py --list-backends
-
-# Generate audio from article
-python tts.py article.md --output article.mp3 --backend edge
-```
-
-### Readwise Integration
-
-```bash
-export READWISE_TOKEN="your_token"
-python -c "from integrations import send_to_readwise; send_to_readwise(article)"
-```
-
-### Image Extraction
-
-```bash
-# Download all thumbnails
-python images.py "https://youtube.com/watch?v=VIDEO_ID" --thumbnails
-
-# Extract frames at specific timestamps
-python images.py "URL" --timestamps 0:30,1:00,2:30 --output ./frames
-
-# Extract frames at 60 second intervals
-python images.py "URL" --interval 60 --max-frames 10
-
-# Extract frame at each chapter start
-python images.py "URL" --chapters
-```
-
-### Translation
-
-```bash
-# Translate text to Spanish
-python translate.py --text "Hello world" --to spanish
-
-# Translate a file to German
-python translate.py transcript.txt --to de --output transcript_de.txt
-
-# Use specific backend (google, deepl, libre)
-python translate.py transcript.txt --to fr --backend deepl
-
-# List available backends and languages
-python translate.py --list-backends
-python translate.py --list-languages
-```
-
-### Scheduled Fetching
-
-```bash
-# Run once
-python scheduler.py batch.yaml --once
-
-# Run every hour
-python scheduler.py batch.yaml --interval 3600
-
-# Run on cron schedule (daily at 8am)
-python scheduler.py batch.yaml --cron "0 8 * * *"
-
-# Run as daemon
-python scheduler.py batch.yaml --interval 3600 --daemon
-
-# Generate systemd service file
-python scheduler.py batch.yaml --generate-systemd > /etc/systemd/system/readtube.service
-
-# Generate macOS launchd plist
-python scheduler.py batch.yaml --generate-launchd > ~/Library/LaunchAgents/com.readtube.scheduler.plist
-```
-
-## Typography
-
-Ebooks are typeset following [Practical Typography](https://practicaltypography.com/) principles:
-
-- **Line length**: 45-90 characters (65ch default)
-- **Line spacing**: 140% (within 120-145% optimal range)
-- **Paragraph style**: First-line indents, no space between
-- **Headings**: Subtle size hierarchy, emphasis via spacing
-- **Fonts**: Charter, Georgia (serif) for body text
-- **Kerning**: Always enabled
-
-## Development
-
-```bash
-make help        # Show all commands
-make test        # Run tests
-make test-cov    # Run with coverage
-make lint        # Run linter
-make clean       # Remove generated files
-```
+Claude will fetch the transcript, write the article, and generate the ebook.
 
 ## Project Structure
 
 ```
 readtube/
-├── fetch_transcript.py   # CLI: fetch video + transcript
-├── create_epub.py        # Generate EPUB/PDF/HTML
-├── get_videos.py         # yt-dlp video fetching
-├── get_transcripts.py    # Transcript extraction + caching
-├── config.py             # Central configuration
-├── async_fetch.py        # Async fetching
+├── fetch_transcript.py   # Main CLI
+├── create_epub.py        # EPUB/PDF/HTML generation
+├── get_videos.py         # YouTube video fetching
+├── get_transcripts.py    # Transcript extraction
 ├── batch.py              # Batch processing
-├── themes.py             # Custom CSS themes
-├── rss.py                # RSS/Atom feed generation
-├── scheduler.py          # Scheduled fetching
-├── translate.py          # Translation support
-├── tts.py                # Text-to-speech audio
-├── images.py             # Image/frame extraction
+├── themes.py             # CSS themes
+├── scheduler.py          # Cron-like scheduling
+├── translate.py          # Translation
+├── tts.py                # Text-to-speech
+├── images.py             # Image extraction
+├── rss.py                # RSS/Atom feeds
 ├── integrations.py       # Readwise integration
-├── SKILL.md              # Claude Code skill definition
-├── tests/                # Test suite
-├── Makefile              # Build commands
-├── shell.nix             # Nix development environment
-├── Dockerfile            # Docker support
-└── requirements.txt      # Python dependencies
+├── config.py             # Configuration
+├── async_fetch.py        # Async support
+└── tests/                # Test suite
+```
+
+## Development
+
+```bash
+make help      # Show all commands
+make test      # Run tests
+make test-cov  # Tests with coverage
+make lint      # Run linter
+make clean     # Clean generated files
 ```
 
 ## Requirements
@@ -282,14 +294,12 @@ readtube/
 - ebooklib
 - markdown
 
-**Optional for PDF:**
-- weasyprint
-- System libraries: Pango, Cairo, GLib
-
-## Acknowledgments
-
-Typography principles from [Practical Typography](https://practicaltypography.com/) by Matthew Butterick.
-
 ## License
 
 MIT
+
+---
+
+<p align="center">
+  Typography principles from <a href="https://practicaltypography.com/">Practical Typography</a> by Matthew Butterick.
+</p>
