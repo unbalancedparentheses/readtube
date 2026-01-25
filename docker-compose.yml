@@ -9,11 +9,4 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
 
-  # Web UI service (when implemented)
-  # web:
-  #   build: .
-  #   ports:
-  #     - "8080:8080"
-  #   volumes:
-  #     - ./output:/app/output
-  #   command: python web.py
+  # Web UI removed; CLI-only project

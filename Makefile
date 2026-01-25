@@ -1,4 +1,4 @@
-.PHONY: install install-pdf install-all test test-cov test-e2e test-unit lint clean help shell web docker
+.PHONY: install install-pdf install-all test test-cov test-e2e test-unit lint clean help shell docker
 
 # Default target
 help:
@@ -11,7 +11,6 @@ help:
 	@echo "  make shell         Enter Nix development shell (requires Nix)"
 	@echo ""
 	@echo "Run:"
-	@echo "  make web           Start web dashboard at http://localhost:8080"
 	@echo "  make demo          Fetch a sample video transcript"
 	@echo "  make docker        Build and run with Docker"
 	@echo ""
@@ -90,14 +89,9 @@ clean:
 demo:
 	python fetch_transcript.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 
-# Start web dashboard
-web:
-	@echo "Starting web dashboard at http://localhost:8080"
-	python web.py --port 8080
-
 # Install all optional dependencies
 install-all: install
-	pip install weasyprint flask pyyaml tqdm
+	pip install weasyprint pyyaml tqdm
 	@echo ""
 	@echo "Optional TTS backends:"
 	@echo "  pip install pyttsx3      # Offline TTS"

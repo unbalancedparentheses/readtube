@@ -11,9 +11,6 @@ markdown
 pyyaml  # For YAML batch configs
 tqdm    # Progress bars
 
-# Optional: Web UI
-flask
-
 # Optional: Text-to-Speech
 # pyttsx3     # Offline TTS
 # gtts        # Google TTS

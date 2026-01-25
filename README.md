@@ -21,7 +21,6 @@ Readtube extracts transcripts from YouTube videos and transforms them into well-
 **Advanced:**
 - **Batch processing**: Process multiple videos from YAML/JSON config
 - **Custom themes**: Built-in themes (default, dark, modern, minimal) or custom CSS
-- **Web dashboard**: Simple Flask web UI for conversions
 - **RSS/Atom feeds**: Generate podcast-style feeds from articles
 - **Text-to-speech**: Audio narration (pyttsx3, gTTS, Edge TTS, macOS say)
 - **Readwise integration**: Send articles and highlights to Readwise
@@ -133,13 +132,6 @@ EOF
 python batch.py batch.yaml
 ```
 
-### Web Dashboard
-
-```bash
-# Start web UI
-python web.py --port 8080
-# Open http://localhost:8080
-```
 
 ### Custom Themes
 
@@ -268,7 +260,6 @@ readtube/
 ├── async_fetch.py        # Async fetching
 ├── batch.py              # Batch processing
 ├── themes.py             # Custom CSS themes
-├── web.py                # Flask web UI
 ├── rss.py                # RSS/Atom feed generation
 ├── scheduler.py          # Scheduled fetching
 ├── translate.py          # Translation support
