@@ -12,11 +12,12 @@ Usage:
 
 import sys
 import argparse
+from typing import Optional, List, Dict, Any
 from get_videos import get_video_info, get_videos_from_channels, get_videos_from_playlist, is_playlist_url
 from get_transcripts import get_transcript, list_available_languages
 
 
-def fetch_single_video(url, lang=None):
+def fetch_single_video(url: str, lang: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """Fetch info and transcript for a single video."""
     print(f"Fetching video: {url}")
 
@@ -39,7 +40,7 @@ def fetch_single_video(url, lang=None):
     return video
 
 
-def fetch_from_playlist(playlist_url, lang=None, max_videos=None):
+def fetch_from_playlist(playlist_url: str, lang: Optional[str] = None, max_videos: Optional[int] = None) -> List[Dict[str, Any]]:
     """Fetch all videos from a playlist."""
     videos = get_videos_from_playlist(playlist_url, max_videos=max_videos)
 
@@ -57,7 +58,7 @@ def fetch_from_playlist(playlist_url, lang=None, max_videos=None):
     return results
 
 
-def fetch_from_channels(lang=None):
+def fetch_from_channels(lang: Optional[str] = None) -> List[Dict[str, Any]]:
     """Fetch latest videos from configured channels."""
     videos = get_videos_from_channels()
 
@@ -75,7 +76,7 @@ def fetch_from_channels(lang=None):
     return results
 
 
-def format_timestamp(seconds):
+def format_timestamp(seconds: float) -> str:
     """Format seconds as MM:SS or HH:MM:SS."""
     hours = int(seconds // 3600)
     minutes = int((seconds % 3600) // 60)
@@ -85,7 +86,7 @@ def format_timestamp(seconds):
     return f"{minutes}:{secs:02d}"
 
 
-def print_video_data(videos, summary_mode=False, output_dir=None):
+def print_video_data(videos: List[Dict[str, Any]], summary_mode: bool = False, output_dir: Optional[str] = None) -> None:
     """Print video data for Claude Code to use."""
     print("\n" + "=" * 60)
     print("VIDEO DATA (for article writing):")
@@ -120,7 +121,7 @@ def print_video_data(videos, summary_mode=False, output_dir=None):
         print("\n" + "-" * 40)
 
 
-def main():
+def main() -> Optional[List[Dict[str, Any]]]:
     parser = argparse.ArgumentParser(
         description="Fetch YouTube video info and transcripts",
         formatter_class=argparse.RawDescriptionHelpFormatter,
