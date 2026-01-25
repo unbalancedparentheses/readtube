@@ -8,28 +8,50 @@ Usage:
     python web.py --port 8080
 """
 
-import os
 import json
 import logging
-from pathlib import Path
+import uuid
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
 try:
-    from flask import Flask, render_template_string, request, jsonify, send_file
+    from flask import Flask, render_template_string, request, jsonify
     HAS_FLASK = True
 except ImportError:
     HAS_FLASK = False
 
-from get_videos import get_video_info, is_playlist_url
-from get_transcripts import get_transcript, list_available_languages
-from create_epub import create_ebook
-from config import get_config, logger
+from get_videos import get_video_info
+from get_transcripts import get_transcript
+from config import logger, CONFIG_DIR
 
 app = Flask(__name__)
 
-# Store jobs in memory (in production, use a database)
-jobs: Dict[str, Dict[str, Any]] = {}
+JOBS_FILE = CONFIG_DIR / "jobs.json"
+
+
+def _load_jobs() -> Dict[str, Dict[str, Any]]:
+    if JOBS_FILE.exists():
+        try:
+            with open(JOBS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                return data
+        except Exception:
+            pass
+    return {}
+
+
+def _save_jobs(jobs_data: Dict[str, Dict[str, Any]]) -> None:
+    try:
+        JOBS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(JOBS_FILE, "w", encoding="utf-8") as f:
+            json.dump(jobs_data, f, indent=2)
+    except Exception as exc:
+        logger.error(f"Error saving jobs: {exc}")
+
+
+# Store jobs in memory (persisted to disk)
+jobs: Dict[str, Dict[str, Any]] = _load_jobs()
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -123,6 +145,7 @@ HTML_TEMPLATE = """
         .status-pending { background: #fff3cd; color: #856404; }
         .status-processing { background: #cce5ff; color: #004085; }
         .status-done { background: #d4edda; color: #155724; }
+        .status-fetched { background: #e2e3e5; color: #383d41; }
         .status-error { background: #f8d7da; color: #721c24; }
         .error { color: #dc3545; margin-top: 0.5rem; }
         .success { color: #28a745; margin-top: 0.5rem; }
@@ -282,7 +305,7 @@ def index():
 @app.route('/api/fetch', methods=['POST'])
 def api_fetch():
     """Fetch video info and transcript."""
-    data = request.json
+    data = request.get_json(silent=True) or {}
     url = data.get('url')
     language = data.get('language')
     output_format = data.get('format', 'epub')
@@ -306,7 +329,7 @@ def api_fetch():
         reading_time = max(1, round(word_count / 200))
 
         # Create job
-        job_id = datetime.now().strftime('%Y%m%d_%H%M%S')
+        job_id = uuid.uuid4().hex
         jobs[job_id] = {
             'id': job_id,
             'title': video['title'],
@@ -318,9 +341,10 @@ def api_fetch():
             'reading_time': reading_time,
             'format': output_format,
             'summary_mode': summary_mode,
-            'status': 'pending',
+            'status': 'fetched',
             'created_at': datetime.now().isoformat(),
         }
+        _save_jobs(jobs)
 
         return jsonify({
             'job_id': job_id,

@@ -10,6 +10,7 @@ Usage:
 """
 
 import os
+import getpass
 import sys
 import time
 import json
@@ -267,7 +268,7 @@ After=network.target
 
 [Service]
 Type=simple
-User={os.getlogin()}
+User={getpass.getuser()}
 WorkingDirectory={working_dir}
 ExecStart={python_path} {script_path} {config_path} --interval {interval}
 Restart=on-failure

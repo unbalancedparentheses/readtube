@@ -15,6 +15,7 @@ Or import and use directly:
 import os
 import sys
 import argparse
+import html
 import markdown
 import tempfile
 import urllib.request
@@ -225,6 +226,10 @@ p {
 }
 """
 
+def _escape_html(value: str) -> str:
+    """Escape untrusted strings for HTML contexts."""
+    return html.escape(str(value), quote=True)
+
 
 def download_thumbnail(url: str, output_path: str) -> bool:
     """Download thumbnail image from URL."""
@@ -285,6 +290,13 @@ def create_epub_book(articles: List[Dict[str, Any]], output_path: Optional[str] 
             print(f"  Could not add cover: {e}")
 
     for i, article in enumerate(articles):
+        title_text = str(article.get("title", ""))
+        channel_text = str(article.get("channel", ""))
+        url_text = str(article.get("url", ""))
+        safe_title = _escape_html(title_text)
+        safe_channel = _escape_html(channel_text)
+        safe_url = _escape_html(url_text)
+
         # Convert markdown to HTML
         article_html = markdown.markdown(
             article['article'],
@@ -294,21 +306,21 @@ def create_epub_book(articles: List[Dict[str, Any]], output_path: Optional[str] 
         # Build chapter content - simpler HTML for better compatibility
         chapter_content = f"""<html>
 <head>
-<title>{article['title'][:50]}</title>
+<title>{safe_title[:50]}</title>
 <link rel="stylesheet" type="text/css" href="style/typography.css"/>
 </head>
 <body>
 <div class="intro">
-<p>Based on <strong>{article['title']}</strong> from <strong>{article['channel']}</strong></p>
+<p>Based on <strong>{safe_title}</strong> from <strong>{safe_channel}</strong></p>
 </div>
 {article_html}
-<p class="watch-link">Original video: {article['url']}</p>
+<p class="watch-link">Original video: {safe_url}</p>
 </body>
 </html>"""
 
         # Create chapter title (truncate if too long)
-        chapter_title = article['title'][:50]
-        if len(article['title']) > 50:
+        chapter_title = title_text[:50]
+        if len(title_text) > 50:
             chapter_title += "..."
 
         chapter = epub.EpubHtml(
@@ -447,6 +459,13 @@ def create_pdf(articles: List[Dict[str, Any]], output_path: Optional[str] = None
 """]
 
     for i, article in enumerate(articles):
+        title_text = str(article.get("title", ""))
+        channel_text = str(article.get("channel", ""))
+        url_text = str(article.get("url", ""))
+        safe_title = _escape_html(title_text)
+        safe_channel = _escape_html(channel_text)
+        safe_url = _escape_html(url_text)
+
         # Add title page with thumbnail for each article
         thumbnail_html = ""
         if article.get('thumbnail'):
@@ -455,8 +474,8 @@ def create_pdf(articles: List[Dict[str, Any]], output_path: Optional[str] = None
         html_parts.append(f"""
     <div class="title-page">
         {thumbnail_html}
-        <h1>{article['title']}</h1>
-        <p class="channel">{article['channel']}</p>
+        <h1>{safe_title}</h1>
+        <p class="channel">{safe_channel}</p>
         <p class="date">{today}</p>
     </div>
 """)
@@ -469,7 +488,7 @@ def create_pdf(articles: List[Dict[str, Any]], output_path: Optional[str] = None
         html_parts.append(f"""
     <div class="article">
         {article_html}
-        <p class="watch-link">Original video: {article['url']}</p>
+        <p class="watch-link">Original video: {safe_url}</p>
     </div>
 """)
 
@@ -561,6 +580,13 @@ def create_html(articles: List[Dict[str, Any]], output_path: Optional[str] = Non
 """]
 
     for article in articles:
+        title_text = str(article.get("title", ""))
+        channel_text = str(article.get("channel", ""))
+        url_text = str(article.get("url", ""))
+        safe_title = _escape_html(title_text)
+        safe_channel = _escape_html(channel_text)
+        safe_url = _escape_html(url_text)
+
         article_html = markdown.markdown(
             article['article'],
             extensions=['smarty']
@@ -569,10 +595,10 @@ def create_html(articles: List[Dict[str, Any]], output_path: Optional[str] = Non
         html_parts.append(f"""
         <div class="article">
             <div class="intro">
-                <p>Based on <strong>{article['title']}</strong> from <strong>{article['channel']}</strong></p>
+                <p>Based on <strong>{safe_title}</strong> from <strong>{safe_channel}</strong></p>
             </div>
             {article_html}
-            <p class="watch-link">Original video: <a href="{article['url']}">{article['url']}</a></p>
+            <p class="watch-link">Original video: <a href="{safe_url}">{safe_url}</a></p>
         </div>
 """)
 

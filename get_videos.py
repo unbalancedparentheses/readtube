@@ -10,7 +10,6 @@ Uses yt-dlp instead of the YouTube API (no API key required).
 """
 
 import sys
-import re
 from typing import Optional, List, Dict, Any, TypedDict
 import yt_dlp
 
@@ -307,6 +306,16 @@ def get_videos_from_channels(channels: Optional[List[str]] = None) -> List[Video
     Fetch the latest long-form video from each channel.
     """
     if channels is None:
+        try:
+            from config import get_config
+
+            cfg = get_config()
+            if cfg.channels:
+                channels = cfg.channels
+        except Exception:
+            pass
+
+    if not channels:
         channels = CHANNELS
 
     print("Fetching latest LONG-FORM videos (skipping Shorts)...\n")

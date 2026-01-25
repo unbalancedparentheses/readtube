@@ -112,9 +112,9 @@ def mock_yt_dlp_video(mocker):
 def mock_transcript(mocker):
     """Mock youtube-transcript-api for transcript extraction."""
     mock_transcript_data = [
-        mocker.MagicMock(text="Hello everyone"),
-        mocker.MagicMock(text="welcome to this video"),
-        mocker.MagicMock(text="today we will discuss testing"),
+        {"text": "Hello everyone", "start": 0.0, "duration": 2.5},
+        {"text": "welcome to this video", "start": 2.5, "duration": 3.0},
+        {"text": "today we will discuss testing", "start": 5.5, "duration": 4.0},
     ]
 
     mock_transcript_obj = mocker.MagicMock()

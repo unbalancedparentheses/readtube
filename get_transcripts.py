@@ -11,7 +11,7 @@ import os
 import time
 import json
 import hashlib
-from typing import Optional, List, Dict, Any, TypedDict
+from typing import Optional, List, Dict, Any, TypedDict, Tuple
 from youtube_transcript_api import YouTubeTranscriptApi
 
 
@@ -34,6 +34,57 @@ class TranscriptSegment(TypedDict):
 CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".transcript_cache")
 
 
+def _get_cache_settings() -> Tuple[bool, int]:
+    """Return cache_enabled and cache_days from config, with safe defaults."""
+    try:
+        from config import get_config
+
+        cfg = get_config()
+        return cfg.fetch.cache_enabled, cfg.fetch.cache_days
+    except Exception:
+        return True, 7
+
+
+def _list_transcripts(video_id: str):
+    """Get transcript list with compatibility across youtube-transcript-api versions."""
+    if hasattr(YouTubeTranscriptApi, "list_transcripts"):
+        try:
+            return YouTubeTranscriptApi.list_transcripts(video_id)
+        except Exception:
+            pass
+    try:
+        api = YouTubeTranscriptApi()
+        if hasattr(api, "list"):
+            return api.list(video_id)
+    except Exception:
+        pass
+    # Final fallback to classmethod if present
+    if hasattr(YouTubeTranscriptApi, "list_transcripts"):
+        return YouTubeTranscriptApi.list_transcripts(video_id)
+    raise RuntimeError("YouTubeTranscriptApi does not support transcript listing on this version")
+
+
+def _segment_text(segment) -> str:
+    """Extract text from a transcript segment (dict or object)."""
+    if isinstance(segment, dict):
+        return str(segment.get("text", ""))
+    return str(getattr(segment, "text", ""))
+
+
+def _segment_start(segment) -> float:
+    """Extract start time from a transcript segment (dict or object)."""
+    if isinstance(segment, dict):
+        return float(segment.get("start", 0.0))
+    return float(getattr(segment, "start", 0.0))
+
+
+def _segment_duration(segment) -> float:
+    """Extract duration from a transcript segment (dict or object)."""
+    if isinstance(segment, dict):
+        return float(segment.get("duration", 0.0))
+    return float(getattr(segment, "duration", 0.0))
+
+
 def get_cache_path(video_id: str, lang: Optional[str] = None) -> str:
     """Get cache file path for a video transcript."""
     cache_key = f"{video_id}_{lang or 'auto'}"
@@ -43,13 +94,17 @@ def get_cache_path(video_id: str, lang: Optional[str] = None) -> str:
 
 def load_from_cache(video_id: str, lang: Optional[str] = None) -> Optional[str]:
     """Load transcript from cache if available."""
+    cache_enabled, cache_days = _get_cache_settings()
+    if not cache_enabled or cache_days <= 0:
+        return None
     cache_path = get_cache_path(video_id, lang)
     if os.path.exists(cache_path):
         try:
             with open(cache_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                # Check cache age (7 days max)
-                if time.time() - data.get('timestamp', 0) < 7 * 24 * 60 * 60:
+                # Check cache age
+                max_age = cache_days * 24 * 60 * 60
+                if time.time() - data.get('timestamp', 0) < max_age:
                     return data.get('transcript')
         except:
             pass
@@ -58,6 +113,9 @@ def load_from_cache(video_id: str, lang: Optional[str] = None) -> Optional[str]:
 
 def save_to_cache(video_id: str, transcript: str, lang: Optional[str] = None) -> None:
     """Save transcript to cache."""
+    cache_enabled, _cache_days = _get_cache_settings()
+    if not cache_enabled:
+        return
     os.makedirs(CACHE_DIR, exist_ok=True)
     cache_path = get_cache_path(video_id, lang)
     try:
@@ -80,8 +138,7 @@ def list_available_languages(video_id: str) -> List[LanguageInfo]:
         List of dicts with 'code' and 'name' for each available language
     """
     try:
-        ytt_api = YouTubeTranscriptApi()
-        transcript_list = ytt_api.list(video_id)
+        transcript_list = _list_transcripts(video_id)
 
         languages = []
         for transcript in transcript_list:
@@ -138,10 +195,8 @@ def get_transcript(
             return cached
 
     try:
-        ytt_api = YouTubeTranscriptApi()
-
         # Get available transcripts
-        transcript_list = ytt_api.list(video_id)
+        transcript_list = _list_transcripts(video_id)
 
         transcript = None
 
@@ -179,8 +234,8 @@ def get_transcript(
             # Include timestamps at regular intervals or per segment
             full_text = ""
             for segment in transcript_data:
-                timestamp = format_timestamp(segment.start)
-                text = segment.text.strip()
+                timestamp = format_timestamp(_segment_start(segment))
+                text = _segment_text(segment).strip()
                 full_text += f"[{timestamp}] {text}\n"
         elif preserve_speakers:
             # Try to preserve speaker information if available
@@ -188,7 +243,7 @@ def get_transcript(
             current_speaker = None
 
             for segment in transcript_data:
-                text = segment.text
+                text = _segment_text(segment)
 
                 # Some transcripts have speaker info in the text
                 if text.startswith('[') and ']' in text:
@@ -205,7 +260,7 @@ def get_transcript(
                 full_text += text + " "
         else:
             # Simple concatenation
-            full_text = " ".join(segment.text for segment in transcript_data)
+            full_text = " ".join(_segment_text(segment) for segment in transcript_data)
 
         result = full_text.strip()
 
@@ -281,8 +336,7 @@ def get_transcript_with_timestamps(video_id: str, lang: Optional[str] = None) ->
         List of dicts with 'text', 'start', 'duration' keys, or None if unavailable
     """
     try:
-        ytt_api = YouTubeTranscriptApi()
-        transcript_list = ytt_api.list(video_id)
+        transcript_list = _list_transcripts(video_id)
 
         transcript = None
         if lang:
@@ -306,10 +360,10 @@ def get_transcript_with_timestamps(video_id: str, lang: Optional[str] = None) ->
 
         return [
             {
-                'text': segment.text,
-                'start': segment.start,
-                'duration': segment.duration,
-                'timestamp': format_timestamp(segment.start),
+                'text': _segment_text(segment),
+                'start': _segment_start(segment),
+                'duration': _segment_duration(segment),
+                'timestamp': format_timestamp(_segment_start(segment)),
             }
             for segment in transcript_data
         ]
