@@ -12,9 +12,39 @@ Usage:
 
 import sys
 import argparse
+import platform
+from importlib import metadata
 from typing import Optional, List, Dict, Any
 from get_videos import get_video_info, get_videos_from_channels, get_videos_from_playlist, is_playlist_url
 from get_transcripts import get_transcript, list_available_languages
+
+
+def _pkg_version(name: str) -> str:
+    try:
+        return metadata.version(name)
+    except metadata.PackageNotFoundError:
+        return "not installed"
+    except Exception:
+        return "unknown"
+
+
+def _print_health(show_only_version: bool = False) -> None:
+    """Print basic environment and dependency info."""
+    print(f"Python: {platform.python_version()}")
+    print("Readtube: local checkout")
+    deps = [
+        "yt-dlp",
+        "youtube-transcript-api",
+        "ebooklib",
+        "markdown",
+        "flask",
+        "weasyprint",
+    ]
+    if show_only_version:
+        return
+    print("Dependencies:")
+    for dep in deps:
+        print(f"  {dep}: {_pkg_version(dep)}")
 
 
 def fetch_single_video(url: str, lang: Optional[str] = None) -> Optional[Dict[str, Any]]:
@@ -142,8 +172,14 @@ Examples:
     parser.add_argument("--list-languages", action="store_true", help="List available languages for a video")
     parser.add_argument("--output-dir", "-o", help="Output directory for generated ebooks")
     parser.add_argument("--summary", action="store_true", help="Request short summary instead of full article")
+    parser.add_argument("--version", action="store_true", help="Show version info and exit")
+    parser.add_argument("--health", action="store_true", help="Check optional dependencies and exit")
 
     args = parser.parse_args()
+
+    if args.version or args.health:
+        _print_health(show_only_version=args.version and not args.health)
+        return
 
     # List languages mode
     if args.list_languages and args.urls:

@@ -10,19 +10,23 @@ Usage:
 
 import json
 import logging
+import queue
+import threading
 import uuid
+from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
 try:
-    from flask import Flask, render_template_string, request, jsonify
+    from flask import Flask, render_template_string, request, jsonify, send_file
     HAS_FLASK = True
 except ImportError:
     HAS_FLASK = False
 
 from get_videos import get_video_info
 from get_transcripts import get_transcript
-from config import logger, CONFIG_DIR
+from create_epub import create_ebook
+from config import get_config, logger, CONFIG_DIR
 
 app = Flask(__name__)
 
@@ -52,6 +56,121 @@ def _save_jobs(jobs_data: Dict[str, Dict[str, Any]]) -> None:
 
 # Store jobs in memory (persisted to disk)
 jobs: Dict[str, Dict[str, Any]] = _load_jobs()
+job_queue: "queue.Queue[str]" = queue.Queue()
+_worker_started = False
+_worker_lock = threading.Lock()
+
+
+def _output_dir() -> Path:
+    cfg = get_config()
+    base = Path(cfg.output.output_dir)
+    if not base.is_absolute():
+        base = Path.cwd() / base
+    base.mkdir(parents=True, exist_ok=True)
+    return base
+
+
+def _build_article_markdown(job: Dict[str, Any]) -> str:
+    """Create a simple article markdown from transcript data."""
+    title = job.get("title", "Untitled")
+    channel = job.get("channel", "Unknown")
+    description = job.get("description", "")
+    transcript = job.get("transcript", "")
+
+    if job.get("summary_mode"):
+        # naive summary: first 3 paragraphs or first 1200 words
+        paragraphs = [p.strip() for p in transcript.split("\n") if p.strip()]
+        short = "\n\n".join(paragraphs[:3]) if paragraphs else ""
+        if not short:
+            words = transcript.split()
+            short = " ".join(words[:1200])
+        transcript_body = short
+    else:
+        transcript_body = transcript
+
+    parts = [
+        f"# {title}",
+        f"**Channel:** {channel}",
+    ]
+    if description:
+        parts.append("\n## Description\n" + description)
+    parts.append("\n## Transcript\n" + transcript_body)
+    return "\n\n".join(parts).strip()
+
+
+def _enqueue_job(job_id: str) -> None:
+    job_queue.put(job_id)
+
+
+def _process_job(job_id: str) -> None:
+    job = jobs.get(job_id)
+    if not job:
+        return
+
+    cfg = get_config()
+    output_format = job.get("format") or cfg.output.default_format
+    include_cover = cfg.output.include_cover
+    output_dir = _output_dir()
+    output_path = output_dir / f"readtube_{job_id}.{output_format}"
+
+    job["status"] = "processing"
+    job["updated_at"] = datetime.now().isoformat()
+    _save_jobs(jobs)
+
+    try:
+        article_md = _build_article_markdown(job)
+        articles = [{
+            "title": job.get("title"),
+            "channel": job.get("channel"),
+            "url": job.get("url"),
+            "thumbnail": job.get("thumbnail"),
+            "article": article_md,
+        }]
+
+        result_path = create_ebook(
+            articles,
+            output_path=str(output_path),
+            format=output_format,
+            include_cover=include_cover,
+        )
+
+        if not result_path:
+            raise RuntimeError("Failed to create output file")
+
+        job["output_path"] = result_path
+        job["status"] = "done"
+        job["updated_at"] = datetime.now().isoformat()
+        _save_jobs(jobs)
+    except Exception as exc:
+        job["status"] = "error"
+        job["error"] = str(exc)
+        job["updated_at"] = datetime.now().isoformat()
+        _save_jobs(jobs)
+
+
+def _worker_loop() -> None:
+    while True:
+        job_id = job_queue.get()
+        if job_id is None:
+            break
+        _process_job(job_id)
+        job_queue.task_done()
+
+
+def ensure_worker_started() -> None:
+    global _worker_started
+    if _worker_started:
+        return
+    with _worker_lock:
+        if _worker_started:
+            return
+        # Requeue unfinished jobs
+        for job_id, job in jobs.items():
+            if job.get("status") in ("fetched", "processing"):
+                _enqueue_job(job_id)
+        thread = threading.Thread(target=_worker_loop, daemon=True)
+        thread.start()
+        _worker_started = True
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -229,6 +348,13 @@ HTML_TEMPLATE = """
         const jobList = document.getElementById('jobList');
         const formMessage = document.getElementById('formMessage');
 
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             formMessage.innerHTML = '<span style="color: #666;">Fetching video info...</span>';
@@ -250,14 +376,14 @@ HTML_TEMPLATE = """
                 const result = await response.json();
 
                 if (result.error) {
-                    formMessage.innerHTML = `<span class="error">${result.error}</span>`;
+                    formMessage.innerHTML = `<span class="error">${escapeHtml(result.error)}</span>`;
                 } else {
                     formMessage.innerHTML = `<span class="success">Video fetched! ${result.word_count} words.</span>`;
                     form.reset();
                     loadJobs();
                 }
             } catch (error) {
-                formMessage.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+                formMessage.innerHTML = `<span class="error">Error: ${escapeHtml(error.message)}</span>`;
             }
         });
 
@@ -278,10 +404,10 @@ HTML_TEMPLATE = """
                 jobList.innerHTML = jobs.map(job => `
                     <li class="job-item">
                         <div>
-                            <div class="job-title">${job.title}</div>
-                            <div class="job-meta">${job.channel} · ${job.word_count} words · ${job.reading_time} min read</div>
+                            <div class="job-title">${escapeHtml(job.title)}</div>
+                            <div class="job-meta">${escapeHtml(job.channel)} · ${job.word_count} words · ${job.reading_time} min read</div>
                         </div>
-                        <span class="status status-${job.status}">${job.status}</span>
+                        <span class="status status-${escapeHtml(job.status)}">${escapeHtml(job.status)}</span>
                     </li>
                 `).join('');
             } catch (error) {
@@ -305,10 +431,12 @@ def index():
 @app.route('/api/fetch', methods=['POST'])
 def api_fetch():
     """Fetch video info and transcript."""
+    ensure_worker_started()
     data = request.get_json(silent=True) or {}
     url = data.get('url')
     language = data.get('language')
-    output_format = data.get('format', 'epub')
+    cfg = get_config()
+    output_format = data.get('format') or cfg.output.default_format
     summary_mode = data.get('summary', False)
 
     if not url:
@@ -336,6 +464,7 @@ def api_fetch():
             'channel': video['channel'],
             'url': video['url'],
             'thumbnail': video.get('thumbnail'),
+            'description': video.get('description', ''),
             'transcript': transcript,
             'word_count': word_count,
             'reading_time': reading_time,
@@ -345,6 +474,7 @@ def api_fetch():
             'created_at': datetime.now().isoformat(),
         }
         _save_jobs(jobs)
+        _enqueue_job(job_id)
 
         return jsonify({
             'job_id': job_id,
@@ -370,6 +500,8 @@ def api_jobs():
             'word_count': job['word_count'],
             'reading_time': job['reading_time'],
             'status': job['status'],
+            'output_path': job.get('output_path'),
+            'error': job.get('error'),
         }
         for job in sorted(jobs.values(), key=lambda x: x['created_at'], reverse=True)
     ])
@@ -382,6 +514,25 @@ def api_job(job_id):
     if not job:
         return jsonify({'error': 'Job not found'}), 404
     return jsonify(job)
+
+
+@app.route('/api/jobs/<job_id>/download')
+def api_job_download(job_id):
+    """Download the output file for a completed job."""
+    job = jobs.get(job_id)
+    if not job:
+        return jsonify({'error': 'Job not found'}), 404
+    output_path = job.get("output_path")
+    if not output_path:
+        return jsonify({'error': 'Output not available'}), 404
+
+    output_dir = _output_dir().resolve()
+    requested = Path(output_path).resolve()
+    if output_dir not in requested.parents and requested != output_dir:
+        return jsonify({'error': 'Invalid output path'}), 400
+    if not requested.exists():
+        return jsonify({'error': 'File not found'}), 404
+    return send_file(str(requested), as_attachment=True)
 
 
 def main():
@@ -398,6 +549,7 @@ def main():
 
     args = parser.parse_args()
 
+    ensure_worker_started()
     print(f"Starting Readtube web UI at http://{args.host}:{args.port}")
     app.run(host=args.host, port=args.port, debug=args.debug)
 

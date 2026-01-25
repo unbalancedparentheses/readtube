@@ -375,6 +375,14 @@ def create_pdf(articles: List[Dict[str, Any]], output_path: Optional[str] = None
         filename = f"youtube_digest_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), filename)
 
+    page_size = "A5"
+    try:
+        from config import get_config
+
+        page_size = get_config().output.page_size or page_size
+    except Exception:
+        pass
+
     # Build HTML document
     html_parts = [f"""<!DOCTYPE html>
 <html>
@@ -386,7 +394,7 @@ def create_pdf(articles: List[Dict[str, Any]], output_path: Optional[str] = None
 
         /* PDF-specific adjustments */
         @page {{
-            size: A5;
+            size: {page_size};
             margin: 2cm 1.5cm;
         }}
 
@@ -614,7 +622,11 @@ def create_html(articles: List[Dict[str, Any]], output_path: Optional[str] = Non
     return output_path
 
 
-def create_mobi(articles: List[Dict[str, Any]], output_path: Optional[str] = None) -> Optional[str]:
+def create_mobi(
+    articles: List[Dict[str, Any]],
+    output_path: Optional[str] = None,
+    include_cover: Optional[bool] = None,
+) -> Optional[str]:
     """
     Create a MOBI ebook (Kindle format).
 
@@ -641,7 +653,15 @@ def create_mobi(articles: List[Dict[str, Any]], output_path: Optional[str] = Non
     with tempfile.NamedTemporaryFile(suffix=".epub", delete=False) as tmp:
         epub_path = tmp.name
 
-    epub_result = create_epub_book(articles, epub_path)
+    if include_cover is None:
+        try:
+            from config import get_config
+
+            include_cover = get_config().output.include_cover
+        except Exception:
+            include_cover = True
+
+    epub_result = create_epub_book(articles, epub_path, include_cover=bool(include_cover))
     if not epub_result:
         return None
 
@@ -689,7 +709,11 @@ def create_mobi(articles: List[Dict[str, Any]], output_path: Optional[str] = Non
             os.unlink(epub_path)
 
 
-def create_azw3(articles: List[Dict[str, Any]], output_path: Optional[str] = None) -> Optional[str]:
+def create_azw3(
+    articles: List[Dict[str, Any]],
+    output_path: Optional[str] = None,
+    include_cover: Optional[bool] = None,
+) -> Optional[str]:
     """
     Create an AZW3 ebook (Kindle Format 8).
 
@@ -719,7 +743,15 @@ def create_azw3(articles: List[Dict[str, Any]], output_path: Optional[str] = Non
     with tempfile.NamedTemporaryFile(suffix=".epub", delete=False) as tmp:
         epub_path = tmp.name
 
-    epub_result = create_epub_book(articles, epub_path)
+    if include_cover is None:
+        try:
+            from config import get_config
+
+            include_cover = get_config().output.include_cover
+        except Exception:
+            include_cover = True
+
+    epub_result = create_epub_book(articles, epub_path, include_cover=bool(include_cover))
     if not epub_result:
         return None
 
@@ -743,7 +775,12 @@ def create_azw3(articles: List[Dict[str, Any]], output_path: Optional[str] = Non
             os.unlink(epub_path)
 
 
-def create_ebook(articles: List[Dict[str, Any]], output_path: Optional[str] = None, format: str = "epub") -> Optional[str]:
+def create_ebook(
+    articles: List[Dict[str, Any]],
+    output_path: Optional[str] = None,
+    format: Optional[str] = "epub",
+    include_cover: Optional[bool] = None,
+) -> Optional[str]:
     """
     Create an ebook in the specified format.
 
@@ -755,16 +792,32 @@ def create_ebook(articles: List[Dict[str, Any]], output_path: Optional[str] = No
     Returns:
         Path to created file
     """
+    if format is None:
+        try:
+            from config import get_config
+
+            format = get_config().output.default_format
+        except Exception:
+            format = "epub"
+
+    if include_cover is None:
+        try:
+            from config import get_config
+
+            include_cover = get_config().output.include_cover
+        except Exception:
+            include_cover = True
+
     if format == "pdf":
         return create_pdf(articles, output_path)
     elif format == "html":
         return create_html(articles, output_path)
     elif format == "mobi":
-        return create_mobi(articles, output_path)
+        return create_mobi(articles, output_path, include_cover=include_cover)
     elif format == "azw3":
-        return create_azw3(articles, output_path)
+        return create_azw3(articles, output_path, include_cover=include_cover)
     else:
-        return create_epub_book(articles, output_path)
+        return create_epub_book(articles, output_path, include_cover=bool(include_cover))
 
 
 # Alias for backwards compatibility

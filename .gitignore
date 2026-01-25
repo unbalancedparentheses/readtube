@@ -8,6 +8,7 @@ processed_videos.json
 *.html
 logs/
 newsletters/
+output/
 
 # Cache
 .transcript_cache/
