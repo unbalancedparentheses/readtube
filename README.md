@@ -31,6 +31,7 @@ Readtube extracts transcripts from YouTube videos and transforms them into well-
 - **Translation**: Translate transcripts (Google, DeepL, LibreTranslate)
 - **Scheduled fetching**: Cron-like scheduling with systemd/launchd support
 - **Type hints**: Full type annotations throughout codebase
+- **Async support**: Async video/transcript fetching for better performance
 
 ## Installation
 
@@ -264,6 +265,7 @@ readtube/
 ├── get_videos.py         # yt-dlp video fetching
 ├── get_transcripts.py    # Transcript extraction + caching
 ├── config.py             # Central configuration
+├── async_fetch.py        # Async fetching
 ├── batch.py              # Batch processing
 ├── themes.py             # Custom CSS themes
 ├── web.py                # Flask web UI
