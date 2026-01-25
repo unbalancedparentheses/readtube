@@ -1,4 +1,4 @@
-.PHONY: install install-pdf test test-cov test-e2e test-unit lint clean help shell
+.PHONY: install install-pdf install-all test test-cov test-e2e test-unit lint clean help shell web docker
 
 # Default target
 help:
@@ -7,7 +7,13 @@ help:
 	@echo "Setup:"
 	@echo "  make install       Install Python dependencies"
 	@echo "  make install-pdf   Install dependencies including PDF support"
+	@echo "  make install-all   Install all optional dependencies"
 	@echo "  make shell         Enter Nix development shell (requires Nix)"
+	@echo ""
+	@echo "Run:"
+	@echo "  make web           Start web dashboard at http://localhost:8080"
+	@echo "  make demo          Fetch a sample video transcript"
+	@echo "  make docker        Build and run with Docker"
 	@echo ""
 	@echo "Testing:"
 	@echo "  make test          Run all tests"
@@ -18,9 +24,6 @@ help:
 	@echo "Development:"
 	@echo "  make lint          Run linter"
 	@echo "  make clean         Remove generated files"
-	@echo ""
-	@echo "Usage:"
-	@echo "  make demo          Fetch a sample video transcript"
 	@echo ""
 
 # Install Python dependencies
@@ -86,3 +89,25 @@ clean:
 # Demo: fetch a sample transcript
 demo:
 	python fetch_transcript.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+
+# Start web dashboard
+web:
+	@echo "Starting web dashboard at http://localhost:8080"
+	python web.py --port 8080
+
+# Install all optional dependencies
+install-all: install
+	pip install weasyprint flask pyyaml tqdm
+	@echo ""
+	@echo "Optional TTS backends:"
+	@echo "  pip install pyttsx3      # Offline TTS"
+	@echo "  pip install gtts         # Google TTS"
+	@echo "  pip install edge-tts     # Microsoft Edge TTS"
+	@echo ""
+	@echo "Optional translation:"
+	@echo "  pip install googletrans==4.0.0-rc1  # Google Translate"
+	@echo "  pip install deepl        # DeepL (needs API key)"
+
+# Build and run with Docker
+docker:
+	docker-compose up --build
