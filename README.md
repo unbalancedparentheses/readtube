@@ -135,7 +135,22 @@ The generated ebooks follow [Practical Typography](https://practicaltypography.c
 
 ## Installation
 
-**Basic:**
+**One-liner:**
+```bash
+curl -sSL https://raw.githubusercontent.com/unbalancedparentheses/readtube/main/install.sh | bash
+```
+
+**With pipx (recommended):**
+```bash
+pipx install git+https://github.com/unbalancedparentheses/readtube.git
+```
+
+**With pip:**
+```bash
+pip install git+https://github.com/unbalancedparentheses/readtube.git
+```
+
+**From source:**
 ```bash
 git clone https://github.com/unbalancedparentheses/readtube.git
 cd readtube
@@ -150,7 +165,7 @@ brew install pango cairo glib
 # Ubuntu/Debian
 sudo apt install libpango-1.0-0 libcairo2 libglib2.0-0
 
-make install-pdf
+pip install "readtube[pdf] @ git+https://github.com/unbalancedparentheses/readtube.git"
 ```
 
 **With Nix** (handles all dependencies):
