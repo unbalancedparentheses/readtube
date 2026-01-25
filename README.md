@@ -14,6 +14,7 @@ Readtube extracts transcripts from YouTube videos and transforms them into well-
 - **Multiple languages**: Select preferred transcript language
 - **Summary mode**: Short summaries instead of full articles
 - **Transcript caching**: 7-day cache for faster repeated requests
+- **Timestamps**: Include timestamps in transcripts for reference
 - **Professional typography**: Based on [Practical Typography](https://practicaltypography.com/)
 - **No API keys**: Uses yt-dlp (no YouTube API key needed)
 

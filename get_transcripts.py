@@ -81,7 +81,17 @@ def list_available_languages(video_id):
         return []
 
 
-def get_transcript(video_id, lang=None, preserve_speakers=False, use_cache=True):
+def format_timestamp(seconds):
+    """Format seconds as HH:MM:SS or MM:SS."""
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    if hours > 0:
+        return f"{hours}:{minutes:02d}:{secs:02d}"
+    return f"{minutes}:{secs:02d}"
+
+
+def get_transcript(video_id, lang=None, preserve_speakers=False, use_cache=True, include_timestamps=False):
     """
     Get the transcript for a YouTube video.
 
@@ -91,6 +101,7 @@ def get_transcript(video_id, lang=None, preserve_speakers=False, use_cache=True)
               If None, uses auto-generated or first available.
         preserve_speakers: If True, preserves speaker labels when available
         use_cache: If True, uses cached transcripts when available
+        include_timestamps: If True, includes timestamps in the output
 
     Returns:
         The full text of everything said in the video, or None if unavailable
@@ -140,7 +151,14 @@ def get_transcript(video_id, lang=None, preserve_speakers=False, use_cache=True)
         transcript_data = transcript.fetch()
 
         # Build the text
-        if preserve_speakers:
+        if include_timestamps:
+            # Include timestamps at regular intervals or per segment
+            full_text = ""
+            for segment in transcript_data:
+                timestamp = format_timestamp(segment.start)
+                text = segment.text.strip()
+                full_text += f"[{timestamp}] {text}\n"
+        elif preserve_speakers:
             # Try to preserve speaker information if available
             full_text = ""
             current_speaker = None
@@ -221,6 +239,56 @@ def get_transcripts_for_videos(videos, lang=None, preserve_speakers=False):
     print(f"Got transcripts for {len(videos_with_transcripts)} of {len(videos)} videos")
 
     return videos_with_transcripts
+
+
+def get_transcript_with_timestamps(video_id, lang=None):
+    """
+    Get transcript as a list of segments with timestamps.
+
+    Args:
+        video_id: YouTube video ID
+        lang: Preferred language code
+
+    Returns:
+        List of dicts with 'text', 'start', 'duration' keys, or None if unavailable
+    """
+    try:
+        ytt_api = YouTubeTranscriptApi()
+        transcript_list = ytt_api.list(video_id)
+
+        transcript = None
+        if lang:
+            try:
+                transcript = transcript_list.find_transcript([lang])
+            except:
+                for t in transcript_list:
+                    if t.is_translatable:
+                        transcript = t.translate(lang)
+                        break
+
+        if transcript is None:
+            for t in transcript_list:
+                if not t.is_generated:
+                    transcript = t
+                    break
+            if transcript is None:
+                transcript = next(iter(transcript_list))
+
+        transcript_data = transcript.fetch()
+
+        return [
+            {
+                'text': segment.text,
+                'start': segment.start,
+                'duration': segment.duration,
+                'timestamp': format_timestamp(segment.start),
+            }
+            for segment in transcript_data
+        ]
+
+    except Exception as e:
+        print(f"  Error getting transcript: {e}")
+        return None
 
 
 def clear_cache():
