@@ -19,6 +19,7 @@ import markdown
 import tempfile
 import urllib.request
 from datetime import datetime
+from typing import Optional, List, Dict, Any
 from ebooklib import epub
 
 
@@ -225,7 +226,7 @@ p {
 """
 
 
-def download_thumbnail(url, output_path):
+def download_thumbnail(url: str, output_path: str) -> bool:
     """Download thumbnail image from URL."""
     try:
         urllib.request.urlretrieve(url, output_path)
@@ -235,7 +236,7 @@ def download_thumbnail(url, output_path):
         return False
 
 
-def create_epub_book(articles, output_path=None, include_cover=True):
+def create_epub_book(articles: List[Dict[str, Any]], output_path: Optional[str] = None, include_cover: bool = True) -> str:
     """
     Create an EPUB ebook from a list of articles.
 
@@ -338,7 +339,7 @@ def create_epub_book(articles, output_path=None, include_cover=True):
     return output_path
 
 
-def create_pdf(articles, output_path=None):
+def create_pdf(articles: List[Dict[str, Any]], output_path: Optional[str] = None) -> Optional[str]:
     """
     Create a PDF from a list of articles using weasyprint.
 
@@ -483,7 +484,7 @@ def create_pdf(articles, output_path=None):
     return output_path
 
 
-def create_html(articles, output_path=None):
+def create_html(articles: List[Dict[str, Any]], output_path: Optional[str] = None) -> str:
     """
     Create a standalone HTML file from a list of articles.
 
@@ -587,7 +588,7 @@ def create_html(articles, output_path=None):
     return output_path
 
 
-def create_mobi(articles, output_path=None):
+def create_mobi(articles: List[Dict[str, Any]], output_path: Optional[str] = None) -> Optional[str]:
     """
     Create a MOBI ebook (Kindle format).
 
@@ -662,7 +663,7 @@ def create_mobi(articles, output_path=None):
             os.unlink(epub_path)
 
 
-def create_azw3(articles, output_path=None):
+def create_azw3(articles: List[Dict[str, Any]], output_path: Optional[str] = None) -> Optional[str]:
     """
     Create an AZW3 ebook (Kindle Format 8).
 
@@ -716,7 +717,7 @@ def create_azw3(articles, output_path=None):
             os.unlink(epub_path)
 
 
-def create_ebook(articles, output_path=None, format="epub"):
+def create_ebook(articles: List[Dict[str, Any]], output_path: Optional[str] = None, format: str = "epub") -> Optional[str]:
     """
     Create an ebook in the specified format.
 
@@ -744,7 +745,7 @@ def create_ebook(articles, output_path=None, format="epub"):
 create_epub_from_articles = create_epub_book
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Create ebook from markdown article")
     parser.add_argument("article_file", help="Path to markdown article file")
     parser.add_argument("--title", required=True, help="Video title")
