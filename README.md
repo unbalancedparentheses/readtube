@@ -29,6 +29,7 @@ Readtube extracts transcripts from YouTube videos and transforms them into well-
 - **Retry logic**: Automatic retry with exponential backoff
 - **Image extraction**: Extract thumbnails and frames at timestamps
 - **Translation**: Translate transcripts (Google, DeepL, LibreTranslate)
+- **Scheduled fetching**: Cron-like scheduling with systemd/launchd support
 
 ## Installation
 
@@ -204,6 +205,28 @@ python translate.py --list-backends
 python translate.py --list-languages
 ```
 
+### Scheduled Fetching
+
+```bash
+# Run once
+python scheduler.py batch.yaml --once
+
+# Run every hour
+python scheduler.py batch.yaml --interval 3600
+
+# Run on cron schedule (daily at 8am)
+python scheduler.py batch.yaml --cron "0 8 * * *"
+
+# Run as daemon
+python scheduler.py batch.yaml --interval 3600 --daemon
+
+# Generate systemd service file
+python scheduler.py batch.yaml --generate-systemd > /etc/systemd/system/readtube.service
+
+# Generate macOS launchd plist
+python scheduler.py batch.yaml --generate-launchd > ~/Library/LaunchAgents/com.readtube.scheduler.plist
+```
+
 ## Typography
 
 Ebooks are typeset following [Practical Typography](https://practicaltypography.com/) principles:
@@ -238,6 +261,7 @@ readtube/
 ├── themes.py             # Custom CSS themes
 ├── web.py                # Flask web UI
 ├── rss.py                # RSS/Atom feed generation
+├── scheduler.py          # Scheduled fetching
 ├── translate.py          # Translation support
 ├── tts.py                # Text-to-speech audio
 ├── images.py             # Image/frame extraction
