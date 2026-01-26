@@ -1,9 +1,39 @@
 # Readtube - YouTube to Ebook converter
-# Multi-stage build for smaller image
+# Production-ready multi-stage build
 
-FROM python:3.11-slim as base
+# ============================================
+# Stage 1: Build dependencies
+# ============================================
+FROM python:3.11-slim as builder
 
-# Install system dependencies for WeasyPrint
+WORKDIR /build
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies to a virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir weasyprint pyyaml tqdm
+
+# ============================================
+# Stage 2: Production image
+# ============================================
+FROM python:3.11-slim as production
+
+# Labels for container metadata
+LABEL org.opencontainers.image.title="Readtube"
+LABEL org.opencontainers.image.description="Transform YouTube videos into beautifully typeset ebooks"
+LABEL org.opencontainers.image.source="https://github.com/unbalancedparentheses/readtube"
+LABEL org.opencontainers.image.licenses="MIT"
+
+# Install runtime dependencies for WeasyPrint and PDF generation
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
@@ -13,48 +43,83 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     shared-mime-info \
     fonts-liberation \
     fonts-dejavu-core \
-    && rm -rf /var/lib/apt/lists/*
+    fonts-noto \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
-# Install Calibre for MOBI conversion (optional, large)
-# Uncomment if you need MOBI support
-# RUN apt-get update && apt-get install -y --no-install-recommends calibre
+# Create non-root user for security
+RUN groupadd --gid 1000 readtube \
+    && useradd --uid 1000 --gid readtube --shell /bin/bash --create-home readtube
 
 WORKDIR /app
 
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt \
-    && pip install --no-cache-dir weasyprint pyyaml tqdm
+# Copy virtual environment from builder
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
 # Copy application code
-COPY *.py ./
-COPY themes.py ./
+COPY --chown=readtube:readtube *.py ./
+COPY --chown=readtube:readtube tests/ ./tests/
 
-# Create directories
-RUN mkdir -p /app/output /app/.transcript_cache
+# Create directories with proper permissions
+RUN mkdir -p /app/output /app/cache /app/data \
+    && chown -R readtube:readtube /app
+
+# Switch to non-root user
+USER readtube
 
 # Set environment variables
-ENV PYTHONUNBUFFERED=1
-ENV OUTPUT_DIR=/app/output
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    OUTPUT_DIR=/app/output \
+    CACHE_DIR=/app/cache \
+    # Disable GPU for llama.cpp (no GPU in container)
+    LLAMA_GPU_LAYERS=0
 
-# Default command
-CMD ["python", "fetch_transcript.py", "--help"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import fetch_transcript; print('OK')" || exit 1
 
-# Usage examples:
+# Expose port for potential web dashboard
+EXPOSE 5000
+
+# Default entrypoint
+ENTRYPOINT ["python"]
+CMD ["fetch_transcript.py", "--help"]
+
+# ============================================
+# Usage Examples
+# ============================================
 #
 # Build:
 #   docker build -t readtube .
 #
 # Fetch transcript:
-#   docker run --rm readtube python fetch_transcript.py "https://youtube.com/watch?v=VIDEO_ID"
+#   docker run --rm readtube fetch_transcript.py "https://youtube.com/watch?v=VIDEO_ID"
 #
-# Create ebook (mount output directory):
-#   docker run --rm -v $(pwd)/output:/app/output readtube python -c "
-#     from create_epub import create_ebook
-#     articles = [{'title': 'Test', 'channel': 'Ch', 'url': 'http://x', 'article': '# Hello'}]
-#     create_ebook(articles, output_path='/app/output/test.epub')
-#   "
+# Fetch and save JSON:
+#   docker run --rm -v $(pwd)/output:/app/output readtube \
+#     fetch_transcript.py "https://youtube.com/watch?v=VIDEO_ID" --output-json /app/output/video.json
 #
-# Run batch processing:
-#   docker run --rm -v $(pwd)/config.yaml:/app/config.yaml -v $(pwd)/output:/app/output \
-#     readtube python batch.py /app/config.yaml --output-dir /app/output
+# Create EPUB from JSON:
+#   docker run --rm -v $(pwd)/output:/app/output readtube \
+#     write_article.py /app/output/video.json --format epub --output-dir /app/output
+#
+# Run with Ollama backend:
+#   docker run --rm --network host \
+#     -e OLLAMA_BASE_URL=http://localhost:11434 \
+#     -v $(pwd)/output:/app/output readtube \
+#     write_article.py /app/output/video.json
+#
+# Run with Claude API:
+#   docker run --rm \
+#     -e ANTHROPIC_API_KEY=your-key-here \
+#     -v $(pwd)/output:/app/output readtube \
+#     write_article.py /app/output/video.json
+#
+# Batch processing:
+#   docker run --rm \
+#     -v $(pwd)/config.yaml:/app/config.yaml:ro \
+#     -v $(pwd)/output:/app/output \
+#     readtube batch.py /app/config.yaml
