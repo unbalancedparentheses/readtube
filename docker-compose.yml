@@ -5,12 +5,14 @@ version: '3.8'
 # ============================================
 
 services:
-  # Main Readtube service
+  # Main Readtube web UI
   readtube:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: readtube
+    ports:
+      - "5000:5000"
     volumes:
       - ./output:/app/output
       - ./cache:/app/cache
@@ -20,8 +22,6 @@ services:
       - OUTPUT_DIR=/app/output
       - CACHE_DIR=/app/cache
     restart: unless-stopped
-    # Override command for specific tasks (examples below)
-    # command: ["fetch_transcript.py", "https://youtube.com/watch?v=VIDEO_ID"]
 
   # Ollama service for local LLM (optional)
   ollama:

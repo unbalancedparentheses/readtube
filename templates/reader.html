@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ article.title }} — Readtube</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>{{ theme_css }}</style>
+</head>
+<body class="reader-body">
+    <div class="reader-toolbar">
+        <a href="/" class="btn btn-sm">Back to Dashboard</a>
+        <div class="reader-toolbar-right">
+            <a href="/article/{{ article.video_id }}/download?format=epub" class="btn btn-sm btn-primary">EPUB</a>
+            <a href="/article/{{ article.video_id }}/download?format=pdf" class="btn btn-sm">PDF</a>
+            <a href="{{ article.url }}" target="_blank" rel="noopener" class="btn btn-sm">YouTube</a>
+        </div>
+    </div>
+    <article class="reader-article">
+        <div class="intro">
+            <p>Based on <strong>{{ article.title }}</strong> from <strong>{{ article.channel }}</strong></p>
+        </div>
+        {% if article.article_html %}
+        {{ article.article_html | safe }}
+        {% else %}
+        <p class="no-article">Article not yet generated. <a href="/">Go back</a> and wait for processing to complete.</p>
+        {% endif %}
+        <div class="watch-link">
+            <p>Original video: <a href="{{ article.url }}">{{ article.url }}</a></p>
+        </div>
+    </article>
+</body>
+</html>

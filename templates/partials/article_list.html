@@ -1,0 +1,9 @@
+{% if articles %}
+<div class="article-list">
+    {% for article in articles %}
+    {% include "partials/article_card.html" %}
+    {% endfor %}
+</div>
+{% else %}
+<p class="empty-state">No articles yet. Paste a YouTube URL above to get started.</p>
+{% endif %}

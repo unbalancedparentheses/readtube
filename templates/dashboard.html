@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% set active = "dashboard" %}
+{% block title %}Readtube — Dashboard{% endblock %}
+
+{% block content %}
+<section class="add-url-section">
+    <h1>Add a YouTube video, playlist, or channel</h1>
+    <form hx-post="/add" hx-target="#article-list" hx-swap="innerHTML" class="add-form">
+        <input type="text" name="url" placeholder="Paste a YouTube URL..." required autofocus class="url-input">
+        <button type="submit" class="btn btn-primary">Add</button>
+    </form>
+</section>
+
+<section class="jobs-section" hx-get="/api/jobs" hx-trigger="every 3s" hx-swap="innerHTML" id="job-status">
+    {% include "partials/job_status.html" %}
+</section>
+
+<section class="articles-section" hx-get="/api/articles" hx-trigger="every 5s" hx-swap="innerHTML" id="article-list">
+    {% include "partials/article_list.html" %}
+</section>
+{% endblock %}

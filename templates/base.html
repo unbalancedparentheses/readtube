@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Readtube{% endblock %}</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-inner">
+            <a href="/" class="nav-brand">Readtube</a>
+            <div class="nav-links">
+                <a href="/" class="{% if active == 'dashboard' %}active{% endif %}">Dashboard</a>
+                <a href="/sources" class="{% if active == 'sources' %}active{% endif %}">Sources</a>
+                <a href="/settings" class="{% if active == 'settings' %}active{% endif %}">Settings</a>
+                <a href="/feed/rss" class="nav-rss" title="RSS Feed">RSS</a>
+            </div>
+        </div>
+    </nav>
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

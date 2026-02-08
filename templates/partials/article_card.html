@@ -1,0 +1,31 @@
+<div class="article-card" id="article-{{ article.video_id }}">
+    {% if article.thumbnail %}
+    <img src="{{ article.thumbnail }}" alt="" class="article-thumb" loading="lazy">
+    {% else %}
+    <div class="article-thumb article-thumb-placeholder"></div>
+    {% endif %}
+    <div class="article-info">
+        <h3 class="article-title">
+            {% if article.status == 'done' %}
+            <a href="/article/{{ article.video_id }}">{{ article.title or article.video_id }}</a>
+            {% else %}
+            {{ article.title or article.video_id }}
+            {% endif %}
+        </h3>
+        <p class="article-channel">{{ article.channel }}</p>
+        <span class="badge badge-{{ article.status }}">{{ article.status }}</span>
+        {% if article.error %}
+        <p class="article-error" title="{{ article.error }}">{{ article.error[:80] }}{% if article.error|length > 80 %}...{% endif %}</p>
+        {% endif %}
+    </div>
+    <div class="article-actions">
+        {% if article.status == 'done' %}
+        <a href="/article/{{ article.video_id }}" class="btn btn-sm btn-primary">Read</a>
+        <a href="/article/{{ article.video_id }}/download?format=epub" class="btn btn-sm">EPUB</a>
+        {% endif %}
+        {% if article.status in ('done', 'error') %}
+        <button hx-post="/article/{{ article.video_id }}/regenerate" hx-target="#article-{{ article.video_id }}" hx-swap="outerHTML" class="btn btn-sm">Redo</button>
+        {% endif %}
+        <button hx-post="/article/{{ article.video_id }}/delete" hx-target="#article-{{ article.video_id }}" hx-swap="outerHTML" class="btn btn-sm btn-danger">Del</button>
+    </div>
+</div>

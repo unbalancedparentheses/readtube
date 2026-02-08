@@ -1,0 +1,8 @@
+<tr id="source-{{ source.id }}">
+    <td>{{ source.name or '(unnamed)' }}</td>
+    <td class="url-cell"><a href="{{ source.url }}" target="_blank" rel="noopener">{{ source.url[:60] }}{% if source.url|length > 60 %}...{% endif %}</a></td>
+    <td><span class="badge badge-{{ source.source_type }}">{{ source.source_type }}</span></td>
+    <td>
+        <button hx-delete="/sources/{{ source.id }}" hx-target="#source-{{ source.id }}" hx-swap="outerHTML" class="btn btn-sm btn-danger">Delete</button>
+    </td>
+</tr>

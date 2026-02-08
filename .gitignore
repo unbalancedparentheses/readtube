@@ -5,10 +5,15 @@
 processed_videos.json
 *.epub
 *.pdf
-*.html
+/*.html
 logs/
 newsletters/
 output/
+
+# Allow template HTML files
+!templates/
+!templates/**/*.html
+!static/
 
 # Cache
 .transcript_cache/

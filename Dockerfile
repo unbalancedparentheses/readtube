@@ -20,7 +20,8 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt \
-    && pip install --no-cache-dir weasyprint pyyaml tqdm
+    && pip install --no-cache-dir weasyprint pyyaml tqdm \
+    && pip install --no-cache-dir fastapi 'uvicorn[standard]' jinja2 python-multipart
 
 # ============================================
 # Stage 2: Production image
@@ -60,6 +61,8 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 # Copy application code
 COPY --chown=readtube:readtube *.py ./
+COPY --chown=readtube:readtube templates/ ./templates/
+COPY --chown=readtube:readtube static/ ./static/
 COPY --chown=readtube:readtube tests/ ./tests/
 
 # Create directories with proper permissions
@@ -84,9 +87,9 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Expose port for potential web dashboard
 EXPOSE 5000
 
-# Default entrypoint
+# Default entrypoint — run the web UI
 ENTRYPOINT ["python"]
-CMD ["fetch_transcript.py", "--help"]
+CMD ["-m", "uvicorn", "web:app", "--host", "0.0.0.0", "--port", "5000"]
 
 # ============================================
 # Usage Examples

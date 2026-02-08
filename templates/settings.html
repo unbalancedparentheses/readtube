@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% set active = "settings" %}
+{% block title %}Readtube — Settings{% endblock %}
+
+{% block content %}
+<h1>Settings</h1>
+
+{% if saved %}
+<div class="alert alert-success">Settings saved.</div>
+{% endif %}
+
+<form method="POST" action="/settings" class="settings-form">
+    <fieldset>
+        <legend>LLM Backend</legend>
+        <label for="llm_backend">Backend</label>
+        <select name="llm_backend" id="llm_backend">
+            <option value="ollama" {% if settings.llm_backend == 'ollama' %}selected{% endif %}>Ollama (local)</option>
+            <option value="claude-api" {% if settings.llm_backend == 'claude-api' %}selected{% endif %}>Claude API</option>
+            <option value="openai" {% if settings.llm_backend == 'openai' %}selected{% endif %}>OpenAI</option>
+            <option value="llama-cpp" {% if settings.llm_backend == 'llama-cpp' %}selected{% endif %}>llama.cpp</option>
+        </select>
+
+        <label for="ollama_model">Ollama Model</label>
+        <input type="text" name="ollama_model" id="ollama_model" value="{{ settings.ollama_model or 'llama3.2' }}" placeholder="llama3.2">
+
+        <label for="anthropic_api_key">Anthropic API Key</label>
+        <input type="password" name="anthropic_api_key" id="anthropic_api_key" value="{{ settings.anthropic_api_key or '' }}" placeholder="sk-ant-...">
+
+        <label for="openai_api_key">OpenAI API Key</label>
+        <input type="password" name="openai_api_key" id="openai_api_key" value="{{ settings.openai_api_key or '' }}" placeholder="sk-...">
+    </fieldset>
+
+    <fieldset>
+        <legend>Appearance</legend>
+        <label for="theme">Reader Theme</label>
+        <select name="theme" id="theme">
+            {% for name, desc in themes.items() %}
+            <option value="{{ name }}" {% if settings.theme == name %}selected{% endif %}>{{ name }} — {{ desc }}</option>
+            {% endfor %}
+        </select>
+    </fieldset>
+
+    <button type="submit" class="btn btn-primary">Save Settings</button>
+</form>
+{% endblock %}
