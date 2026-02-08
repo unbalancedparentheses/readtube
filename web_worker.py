@@ -54,10 +54,26 @@ _STUCK_CHECK_INTERVAL: float = 120  # check for stuck jobs every 2 minutes
 _CLEANUP_INTERVAL: float = 3600  # clean old jobs every hour
 
 
+def _auto_fetch_sources() -> None:
+    """Create fetch_source jobs for sources with auto_fetch enabled."""
+    sources = db.source_list_auto_fetch()
+    for src in sources:
+        # Skip if there's already a pending/running fetch_source job for this source
+        active_jobs = db.job_list_active()
+        has_active = any(
+            j["job_type"] == "fetch_source" and j.get("source_id") == src["id"]
+            for j in active_jobs
+        )
+        if not has_active:
+            db.job_create("fetch_source", source_id=src["id"])
+            logger.info("Auto-fetch: queued source %s (%s)", src["id"], src.get("name") or src["url"])
+
+
 def _poll_loop() -> None:
     """Poll for pending jobs and submit them to the executor."""
     last_stuck_check: float = 0
     last_cleanup: float = 0
+    last_auto_fetch: float = 0
     while _running:
         try:
             now = time.time()
@@ -75,6 +91,15 @@ def _poll_loop() -> None:
                 if cleaned:
                     logger.info("Cleaned up %d old jobs", cleaned)
                 last_cleanup = now
+
+            # Periodically auto-fetch sources
+            try:
+                interval = int(db.setting_get("auto_fetch_interval", "0"))
+            except (ValueError, TypeError):
+                interval = 0
+            if interval > 0 and now - last_auto_fetch > interval:
+                _auto_fetch_sources()
+                last_auto_fetch = now
 
             job = db.job_next_pending()
             if job and _executor:
@@ -193,13 +218,29 @@ def _do_fetch_video(job: Dict[str, Any]) -> None:
         if api_key:
             backend_kwargs["api_key"] = api_key
 
+    # Build chapter-aware transcript if chapters are available
     chapters_text = ""
+    use_chapters = False
     try:
         chapters = info.get("chapters", [])
         if chapters:
-            chapters_text = "\n".join(f"- {ch['title']}" for ch in chapters)
+            from chapters import split_transcript_by_chapters
+            chaptered = split_transcript_by_chapters(transcript, chapters)
+            if chaptered.has_chapters and chaptered.chapters:
+                parts = []
+                for ch in chaptered.chapters:
+                    parts.append(f"## {ch.title}\n\n{ch.transcript}")
+                transcript = "\n\n".join(parts)
+                use_chapters = True
+            else:
+                chapters_text = "\n".join(f"- {ch['title']}" for ch in chapters)
     except Exception:
-        pass
+        # Fallback to flat chapter list
+        try:
+            if chapters:
+                chapters_text = "\n".join(f"- {ch['title']}" for ch in chapters)
+        except Exception:
+            pass
 
     try:
         article_md = generate_article(
@@ -208,6 +249,7 @@ def _do_fetch_video(job: Dict[str, Any]) -> None:
             channel=info.get("channel", ""),
             description=info.get("description"),
             chapters=chapters_text or None,
+            has_chapters=use_chapters,
             backend=backend,
             **backend_kwargs,
         )

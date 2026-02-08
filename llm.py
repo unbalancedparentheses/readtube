@@ -467,12 +467,27 @@ Transcript:
 Write a polished, magazine-style article based on this content. Use markdown formatting with headers, paragraphs, and occasional quotes from the original."""
 
 
+ARTICLE_PROMPT_TEMPLATE_CHAPTERS = """Transform this transcript into a well-written article.
+
+Title: {title}
+Channel: {channel}
+Description: {description}
+
+The transcript below is organized into sections with ## headings. Preserve these headings in your article. Write each section based on the content under that heading.
+
+Transcript:
+{transcript}
+
+Write a polished, magazine-style article based on this content. Use markdown formatting, keeping the ## section headings from the transcript. Write engaging prose for each section."""
+
+
 def generate_article(
     transcript: str,
     title: str,
     channel: str,
     description: Optional[str] = None,
     chapters: Optional[str] = None,
+    has_chapters: bool = False,
     backend: Optional[str] = None,
     max_tokens: Optional[int] = None,
     temperature: Optional[float] = None,
@@ -485,6 +500,7 @@ def generate_article(
         transcript: The raw transcript text
         title: Video title
         channel: Channel name
+        has_chapters: If True, transcript is pre-structured with ## headings
         backend: LLM backend to use or None for auto-select
         **backend_kwargs: Additional arguments for the backend
 
@@ -501,13 +517,21 @@ def generate_article(
         logger.error("  4. Set ANTHROPIC_API_KEY for Claude API")
         return None
 
-    prompt = ARTICLE_PROMPT_TEMPLATE.format(
-        title=title,
-        channel=channel,
-        description=description or "",
-        chapters=chapters or "",
-        transcript=transcript[:50000],
-    )
+    if has_chapters:
+        prompt = ARTICLE_PROMPT_TEMPLATE_CHAPTERS.format(
+            title=title,
+            channel=channel,
+            description=description or "",
+            transcript=transcript[:50000],
+        )
+    else:
+        prompt = ARTICLE_PROMPT_TEMPLATE.format(
+            title=title,
+            channel=channel,
+            description=description or "",
+            chapters=chapters or "",
+            transcript=transcript[:50000],
+        )
 
     return llm.generate(
         prompt,

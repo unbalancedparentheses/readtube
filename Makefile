@@ -1,4 +1,4 @@
-.PHONY: install install-pdf install-all test test-cov test-e2e test-unit lint clean help shell docker
+.PHONY: install install-pdf install-all test test-cov test-e2e test-unit lint clean help shell docker css css-watch run dev
 
 # Default target
 help:
@@ -11,6 +11,8 @@ help:
 	@echo "  make shell         Enter Nix development shell (requires Nix)"
 	@echo ""
 	@echo "Run:"
+	@echo "  make run           Start the web UI on http://127.0.0.1:8000"
+	@echo "  make dev           Start web UI + CSS watcher (development)"
 	@echo "  make demo          Fetch a sample video transcript"
 	@echo "  make docker        Build and run with Docker"
 	@echo ""
@@ -21,14 +23,18 @@ help:
 	@echo "  make test-e2e      Run end-to-end tests only"
 	@echo ""
 	@echo "Development:"
+	@echo "  make css           Build Tailwind CSS"
+	@echo "  make css-watch     Watch & rebuild CSS on changes"
 	@echo "  make lint          Run linter"
 	@echo "  make clean         Remove generated files"
 	@echo ""
 
-# Install Python dependencies
+# Install Python + Node dependencies and build CSS
 install:
 	pip install -r requirements.txt
 	pip install pytest pytest-mock pytest-cov
+	npm install
+	$(MAKE) css
 
 # Install with PDF support (requires system dependencies)
 install-pdf: install
@@ -101,6 +107,23 @@ install-all: install
 	@echo "Optional translation:"
 	@echo "  pip install googletrans==4.0.0-rc1  # Google Translate"
 	@echo "  pip install deepl        # DeepL (needs API key)"
+
+# Start the web UI
+run: css
+	python web.py
+
+# Start web UI + CSS watcher (development)
+dev:
+	npx tailwindcss -i static/input.css -o static/style.css --watch &
+	python web.py
+
+# Build Tailwind CSS
+css:
+	npx tailwindcss -i static/input.css -o static/style.css --minify
+
+# Watch CSS changes (development)
+css-watch:
+	npx tailwindcss -i static/input.css -o static/style.css --watch
 
 # Build and run with Docker
 docker:

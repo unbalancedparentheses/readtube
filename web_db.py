@@ -109,6 +109,13 @@ def init_db() -> None:
         "theme": "default",
         "anthropic_api_key": "",
         "openai_api_key": "",
+        "kindle_email": "",
+        "smtp_host": "",
+        "smtp_port": "587",
+        "smtp_user": "",
+        "smtp_pass": "",
+        "smtp_from": "",
+        "auto_fetch_interval": "0",
     }
     for k, v in defaults.items():
         setting_set(k, v, overwrite=False)
@@ -161,6 +168,32 @@ def source_add(url: str, source_type: str = "video", name: str = "", auto_fetch:
 def source_list() -> List[Dict[str, Any]]:
     with _tx() as cur:
         cur.execute("SELECT * FROM sources ORDER BY created_at DESC")
+        return [dict(row) for row in cur.fetchall()]
+
+
+def source_update(source_id: int, **fields: Any) -> None:
+    allowed = {"name", "auto_fetch", "url", "source_type"}
+    bad = set(fields) - allowed
+    if bad:
+        raise ValueError(f"Invalid source fields: {bad}")
+    if not fields:
+        return
+    set_clause = ", ".join(f"{k} = ?" for k in fields)
+    vals = list(fields.values()) + [source_id]
+    with _tx() as cur:
+        cur.execute(f"UPDATE sources SET {set_clause} WHERE id = ?", vals)
+
+
+def source_get(source_id: int) -> Optional[Dict[str, Any]]:
+    with _tx() as cur:
+        cur.execute("SELECT * FROM sources WHERE id = ?", (source_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def source_list_auto_fetch() -> List[Dict[str, Any]]:
+    with _tx() as cur:
+        cur.execute("SELECT * FROM sources WHERE auto_fetch = 1 ORDER BY created_at ASC")
         return [dict(row) for row in cur.fetchall()]
 
 

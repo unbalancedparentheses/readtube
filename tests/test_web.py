@@ -803,3 +803,392 @@ class TestSearchFilter:
         resp = client.get("/api/articles?q=Searchable")
         assert resp.status_code == 200
         assert "API Searchable" in resp.text
+
+
+# ── Chapter-Aware Article Tests ──────────────────────────
+
+class TestChapterAwareArticles:
+    """Tests for Feature 1: Chapter-aware articles."""
+
+    def test_chapter_splitting_in_worker(self) -> None:
+        """Test that chapters cause structured transcript to be passed to LLM."""
+        import web_db as db
+        import web_worker as worker
+
+        art_id = db.article_upsert("ch1", url="https://www.youtube.com/watch?v=ch1")
+        job_id = db.job_create("fetch_video", article_id=art_id)
+        job = {"id": job_id, "job_type": "fetch_video", "article_id": art_id, "source_id": None}
+
+        mock_info: Dict[str, Any] = {
+            "title": "Chapter Test",
+            "video_id": "ch1",
+            "description": "",
+            "channel": "Ch Channel",
+            "url": "https://www.youtube.com/watch?v=ch1",
+            "thumbnail": None,
+            "duration": 600,
+            "chapters": [
+                {"title": "Introduction", "start_time": 0, "end_time": 300},
+                {"title": "Main Topic", "start_time": 300, "end_time": 600},
+            ],
+        }
+
+        captured = {}
+        def mock_generate(**kwargs):
+            captured.update(kwargs)
+            return "# Chapter Test\n\n## Introduction\n\nIntro content.\n\n## Main Topic\n\nMain content."
+
+        with patch("get_videos.get_video_info", return_value=mock_info), \
+             patch("get_transcripts.get_transcript", return_value="Word " * 100), \
+             patch("llm.generate_article", side_effect=mock_generate):
+            worker._do_fetch_video(job)
+
+        art = db.article_get("ch1")
+        assert art["status"] == "done"
+        # Verify has_chapters was passed
+        assert captured.get("has_chapters") is True
+        # Verify the transcript has ## headings
+        assert "## Introduction" in captured.get("transcript", "")
+        assert "## Main Topic" in captured.get("transcript", "")
+
+    def test_no_chapters_uses_flat_template(self) -> None:
+        """Test that videos without chapters use the normal template."""
+        import web_db as db
+        import web_worker as worker
+
+        art_id = db.article_upsert("nch1", url="https://www.youtube.com/watch?v=nch1")
+        job_id = db.job_create("fetch_video", article_id=art_id)
+        job = {"id": job_id, "job_type": "fetch_video", "article_id": art_id, "source_id": None}
+
+        mock_info: Dict[str, Any] = {
+            "title": "No Chapters",
+            "video_id": "nch1",
+            "description": "",
+            "channel": "Test",
+            "url": "https://www.youtube.com/watch?v=nch1",
+            "thumbnail": None,
+            "duration": 300,
+            "chapters": [],
+        }
+
+        captured = {}
+        def mock_generate(**kwargs):
+            captured.update(kwargs)
+            return "# No Chapters\n\nArticle content."
+
+        with patch("get_videos.get_video_info", return_value=mock_info), \
+             patch("get_transcripts.get_transcript", return_value="Some transcript"), \
+             patch("llm.generate_article", side_effect=mock_generate):
+            worker._do_fetch_video(job)
+
+        assert captured.get("has_chapters") is False
+
+
+# ── Markdown Download Tests ──────────────────────────────
+
+class TestMarkdownDownload:
+    """Tests for Feature 2: Markdown download."""
+
+    def test_download_md(self, client: Any) -> None:
+        import web_db as db
+        db.article_upsert(
+            "md1",
+            title="MD Test",
+            channel="Test Channel",
+            url="https://youtube.com/watch?v=md1",
+        )
+        db.article_update(
+            "md1",
+            status="done",
+            article_md="# MD Content\n\nThis is markdown.",
+        )
+        resp = client.get("/article/md1/download?format=md")
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "text/markdown; charset=utf-8"
+        assert b"# MD Content" in resp.content
+        assert "attachment" in resp.headers.get("content-disposition", "")
+
+    def test_article_card_has_md_button(self, client: Any) -> None:
+        import web_db as db
+        db.article_upsert("md2", title="MD Button Test", url="https://youtube.com/watch?v=md2")
+        db.article_update("md2", status="done", article_md="# Content", article_html="<h1>Content</h1>")
+        resp = client.get("/api/articles")
+        assert resp.status_code == 200
+        assert "format=md" in resp.text
+
+
+# ── Kindle Send Tests ────────────────────────────────────
+
+class TestKindleSend:
+    """Tests for Feature 3: Kindle send."""
+
+    def test_kindle_settings_defaults(self) -> None:
+        import web_db as db
+        assert db.setting_get("kindle_email") == ""
+        assert db.setting_get("smtp_host") == ""
+        assert db.setting_get("smtp_port") == "587"
+
+    def test_kindle_send_no_smtp_configured(self, client: Any) -> None:
+        import web_db as db
+        db.article_upsert("k1", title="Kindle Test", url="https://youtube.com/watch?v=k1")
+        db.article_update("k1", status="done", article_md="# Kindle Content")
+        resp = client.post("/article/k1/send-kindle")
+        assert resp.status_code == 200
+        assert "Configure" in resp.text or "Settings" in resp.text
+
+    def test_kindle_send_article_not_ready(self, client: Any) -> None:
+        import web_db as db
+        db.article_upsert("k2", title="Not Ready", url="https://youtube.com/watch?v=k2")
+        resp = client.post("/article/k2/send-kindle")
+        assert resp.status_code == 200
+        assert "not ready" in resp.text.lower()
+
+    def test_kindle_send_with_smtp(self, client: Any) -> None:
+        """Test kindle send with mocked SMTP."""
+        import web_db as db
+        db.setting_set("kindle_email", "test@kindle.com")
+        db.setting_set("smtp_host", "smtp.test.com")
+        db.setting_set("smtp_from", "from@test.com")
+        db.setting_set("smtp_user", "user")
+        db.setting_set("smtp_pass", "pass")
+
+        db.article_upsert("k3", title="Kindle SMTP", channel="Ch", url="https://youtube.com/watch?v=k3")
+        db.article_update("k3", status="done", article_md="# Kindle Content\n\nBody.")
+
+        mock_server = MagicMock()
+        mock_smtp_class = MagicMock()
+        mock_smtp_class.return_value.__enter__ = MagicMock(return_value=mock_server)
+        mock_smtp_class.return_value.__exit__ = MagicMock(return_value=False)
+
+        with patch("smtplib.SMTP", mock_smtp_class):
+            resp = client.post("/article/k3/send-kindle")
+        assert resp.status_code == 200
+        assert "Sent to Kindle" in resp.text
+        mock_server.starttls.assert_called_once()
+        mock_server.login.assert_called_once_with("user", "pass")
+        mock_server.send_message.assert_called_once()
+
+    def test_settings_page_has_kindle_fields(self, client: Any) -> None:
+        resp = client.get("/settings")
+        assert resp.status_code == 200
+        assert "kindle_email" in resp.text
+        assert "smtp_host" in resp.text
+
+    def test_save_kindle_settings(self, client: Any) -> None:
+        import web_db as db
+        resp = client.post("/settings", data={
+            "llm_backend": "ollama",
+            "ollama_model": "llama3.2",
+            "theme": "default",
+            "anthropic_api_key": "",
+            "openai_api_key": "",
+            "kindle_email": "my@kindle.com",
+            "smtp_host": "smtp.gmail.com",
+            "smtp_port": "587",
+            "smtp_user": "me@gmail.com",
+            "smtp_pass": "secret",
+            "smtp_from": "me@gmail.com",
+            "auto_fetch_interval": "0",
+        })
+        assert resp.status_code == 200
+        assert db.setting_get("kindle_email") == "my@kindle.com"
+        assert db.setting_get("smtp_host") == "smtp.gmail.com"
+
+
+# ── Scheduled Fetches Tests ──────────────────────────────
+
+class TestScheduledFetches:
+    """Tests for Feature 4: Scheduled fetches."""
+
+    def test_auto_fetch_interval_default(self) -> None:
+        import web_db as db
+        assert db.setting_get("auto_fetch_interval") == "0"
+
+    def test_source_update_auto_fetch(self) -> None:
+        import web_db as db
+        src_id = db.source_add("https://youtube.com/@autofetch", source_type="channel")
+        src = db.source_get(src_id)
+        assert src["auto_fetch"] == 0
+        db.source_update(src_id, auto_fetch=1)
+        src = db.source_get(src_id)
+        assert src["auto_fetch"] == 1
+
+    def test_source_list_auto_fetch(self) -> None:
+        import web_db as db
+        db.source_add("https://youtube.com/@auto1", source_type="channel")
+        s2 = db.source_add("https://youtube.com/@auto2", source_type="channel")
+        db.source_update(s2, auto_fetch=1)
+        auto_sources = db.source_list_auto_fetch()
+        assert len(auto_sources) == 1
+        assert auto_sources[0]["url"] == "https://youtube.com/@auto2"
+
+    def test_toggle_auto_fetch_route(self, client: Any) -> None:
+        import web_db as db
+        src_id = db.source_add("https://youtube.com/@toggle", source_type="channel", name="Toggle Test")
+        resp = client.post(f"/sources/{src_id}/toggle-auto-fetch")
+        assert resp.status_code == 200
+        src = db.source_get(src_id)
+        assert src["auto_fetch"] == 1
+        # Toggle again
+        resp = client.post(f"/sources/{src_id}/toggle-auto-fetch")
+        assert resp.status_code == 200
+        src = db.source_get(src_id)
+        assert src["auto_fetch"] == 0
+
+    def test_auto_fetch_sources_creates_jobs(self) -> None:
+        import web_db as db
+        import web_worker as worker
+
+        src_id = db.source_add("https://youtube.com/@autojob", source_type="channel")
+        db.source_update(src_id, auto_fetch=1)
+        worker._auto_fetch_sources()
+        active = db.job_list_active()
+        fetch_source_jobs = [j for j in active if j["job_type"] == "fetch_source"]
+        assert len(fetch_source_jobs) >= 1
+
+    def test_auto_fetch_sources_skips_active_jobs(self) -> None:
+        import web_db as db
+        import web_worker as worker
+
+        src_id = db.source_add("https://youtube.com/@skipactive", source_type="channel")
+        db.source_update(src_id, auto_fetch=1)
+        # Create an already-active job for this source
+        db.job_create("fetch_source", source_id=src_id)
+        worker._auto_fetch_sources()
+        active = db.job_list_active()
+        # Should only have the one job, not a duplicate
+        source_jobs = [j for j in active if j.get("source_id") == src_id]
+        assert len(source_jobs) == 1
+
+    def test_save_auto_fetch_interval_converts_to_seconds(self, client: Any) -> None:
+        import web_db as db
+        resp = client.post("/settings", data={
+            "llm_backend": "ollama",
+            "ollama_model": "llama3.2",
+            "theme": "default",
+            "anthropic_api_key": "",
+            "openai_api_key": "",
+            "kindle_email": "",
+            "smtp_host": "",
+            "smtp_port": "587",
+            "smtp_user": "",
+            "smtp_pass": "",
+            "smtp_from": "",
+            "auto_fetch_interval": "60",  # 60 minutes
+        })
+        assert resp.status_code == 200
+        assert db.setting_get("auto_fetch_interval") == "3600"  # stored as seconds
+
+    def test_source_update_invalid_field(self) -> None:
+        import web_db as db
+        src_id = db.source_add("https://youtube.com/@invalid")
+        with pytest.raises(ValueError, match="Invalid source fields"):
+            db.source_update(src_id, malicious="DROP TABLE")
+
+
+# ── OPML Import Tests ────────────────────────────────────
+
+class TestOPMLImport:
+    """Tests for Feature 5: OPML import."""
+
+    def test_import_opml_basic(self, client: Any) -> None:
+        import web_db as db
+        opml_content = b"""<?xml version="1.0" encoding="UTF-8"?>
+        <opml version="1.0">
+          <body>
+            <outline text="YouTube Subscriptions" title="YouTube Subscriptions">
+              <outline text="Channel One" title="Channel One" type="rss"
+                xmlUrl="https://www.youtube.com/feeds/videos.xml?channel_id=UC123"
+                htmlUrl="https://www.youtube.com/channel/UC123"/>
+              <outline text="Channel Two" title="Channel Two" type="rss"
+                xmlUrl="https://www.youtube.com/feeds/videos.xml?channel_id=UC456"
+                htmlUrl="https://www.youtube.com/channel/UC456"/>
+            </outline>
+          </body>
+        </opml>"""
+        resp = client.post(
+            "/sources/import-opml",
+            files={"file": ("subscriptions.opml", opml_content, "text/xml")},
+        )
+        assert resp.status_code == 200
+        assert "Imported 2" in resp.text
+        sources = db.source_list()
+        assert len(sources) == 2
+        urls = {s["url"] for s in sources}
+        assert "https://www.youtube.com/channel/UC123" in urls
+        assert "https://www.youtube.com/channel/UC456" in urls
+
+    def test_import_opml_uses_title(self, client: Any) -> None:
+        import web_db as db
+        opml_content = b"""<?xml version="1.0"?>
+        <opml version="1.0">
+          <body>
+            <outline text="My Channel" title="My Channel" type="rss"
+              xmlUrl="https://www.youtube.com/feeds/videos.xml?channel_id=UCABC"
+              htmlUrl="https://www.youtube.com/channel/UCABC"/>
+          </body>
+        </opml>"""
+        resp = client.post(
+            "/sources/import-opml",
+            files={"file": ("subs.opml", opml_content, "text/xml")},
+        )
+        assert resp.status_code == 200
+        sources = db.source_list()
+        assert len(sources) == 1
+        assert sources[0]["name"] == "My Channel"
+        assert sources[0]["source_type"] == "channel"
+
+    def test_import_opml_invalid_xml(self, client: Any) -> None:
+        resp = client.post(
+            "/sources/import-opml",
+            files={"file": ("bad.opml", b"not xml at all", "text/xml")},
+        )
+        assert resp.status_code == 200
+        assert "Invalid" in resp.text
+
+    def test_import_opml_skips_non_youtube(self, client: Any) -> None:
+        import web_db as db
+        opml_content = b"""<?xml version="1.0"?>
+        <opml version="1.0">
+          <body>
+            <outline text="Blog" type="rss"
+              xmlUrl="https://example.com/feed.xml"
+              htmlUrl="https://example.com"/>
+            <outline text="YT Channel" title="YT Channel" type="rss"
+              xmlUrl="https://www.youtube.com/feeds/videos.xml?channel_id=UCXYZ"
+              htmlUrl="https://www.youtube.com/channel/UCXYZ"/>
+          </body>
+        </opml>"""
+        resp = client.post(
+            "/sources/import-opml",
+            files={"file": ("mixed.opml", opml_content, "text/xml")},
+        )
+        assert resp.status_code == 200
+        assert "Imported 1" in resp.text
+        sources = db.source_list()
+        assert len(sources) == 1
+
+    def test_import_opml_xml_url_fallback(self, client: Any) -> None:
+        """Test that when htmlUrl is missing, xmlUrl with channel_id is used."""
+        import web_db as db
+        opml_content = b"""<?xml version="1.0"?>
+        <opml version="1.0">
+          <body>
+            <outline text="Feed Only" title="Feed Only" type="rss"
+              xmlUrl="https://www.youtube.com/feeds/videos.xml?channel_id=UCFEED"/>
+          </body>
+        </opml>"""
+        resp = client.post(
+            "/sources/import-opml",
+            files={"file": ("feed.opml", opml_content, "text/xml")},
+        )
+        assert resp.status_code == 200
+        sources = db.source_list()
+        assert len(sources) == 1
+        assert sources[0]["url"] == "https://www.youtube.com/channel/UCFEED"
+
+    def test_sources_page_has_opml_form(self, client: Any) -> None:
+        resp = client.get("/sources")
+        assert resp.status_code == 200
+        assert "import-opml" in resp.text
+        assert ".opml" in resp.text

@@ -2,11 +2,11 @@
 <div class="alert alert-error">{{ error }}</div>
 {% endif %}
 {% if articles %}
-<div class="article-list">
+<div class="flex flex-col gap-3">
     {% for article in articles %}
     {% include "partials/article_card.html" %}
     {% endfor %}
 </div>
 {% else %}
-<p class="empty-state">No articles yet. Paste a YouTube URL above to get started.</p>
+<p class="text-center text-stone-400 py-16 text-sm">No articles yet. Paste a YouTube URL above to get started.</p>
 {% endif %}

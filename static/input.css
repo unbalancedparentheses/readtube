@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Component classes ─────────────────────────────── */
+@layer components {
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium
+           border border-sand rounded-xl bg-white text-ink
+           cursor-pointer no-underline whitespace-nowrap
+           transition-all duration-150
+           hover:bg-stone-50 hover:border-stone-300 hover:shadow-sm
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 focus-visible:ring-offset-2;
+  }
+  .btn-primary {
+    @apply bg-yt text-white border-transparent shadow-sm
+           hover:bg-yt-dark hover:shadow-md hover:text-white;
+  }
+  .btn-danger {
+    @apply text-red-600 border-red-200
+           hover:bg-red-600 hover:text-white hover:border-red-600;
+  }
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs rounded-lg;
+  }
+
+  /* Badges */
+  .badge {
+    @apply inline-block px-2.5 py-0.5 text-[0.65rem] font-semibold
+           rounded-full uppercase tracking-wider;
+  }
+  .badge-pending     { @apply bg-stone-100 text-stone-500; }
+  .badge-fetching    { @apply bg-blue-50 text-blue-700; }
+  .badge-transcribing { @apply bg-blue-50 text-blue-700; }
+  .badge-generating  { @apply bg-blue-50 text-blue-700; }
+  .badge-running     { @apply bg-blue-50 text-blue-700; }
+  .badge-done        { @apply bg-emerald-50 text-emerald-700; }
+  .badge-error       { @apply bg-red-50 text-red-700; }
+  .badge-video       { @apply bg-stone-100 text-stone-500; }
+  .badge-playlist    { @apply bg-blue-50 text-blue-700; }
+  .badge-channel     { @apply bg-amber-50 text-amber-700; }
+
+  /* Alerts */
+  .alert {
+    @apply px-4 py-3 rounded-xl mb-6 text-sm;
+  }
+  .alert-success {
+    @apply bg-emerald-50 text-emerald-700 border border-emerald-200;
+  }
+  .alert-error {
+    @apply bg-red-50 text-red-700 border border-red-200;
+  }
+}
+
+/* ── Spinner animation ─────────────────────────────── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.job-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid theme("colors.stone.300");
+  border-top-color: theme("colors.stone.700");
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+/* HTMX loading indicator */
+.htmx-indicator { display: none; }
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator { display: inline-block; }
+
+/* ── Kindle/send status text ───────────────────────── */
+.text-success { color: theme("colors.emerald.600"); font-size: 0.75rem; }
+.text-error   { color: theme("colors.red.600"); font-size: 0.75rem; }

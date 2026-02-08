@@ -2,7 +2,18 @@
 # Production-ready multi-stage build
 
 # ============================================
-# Stage 1: Build dependencies
+# Stage 1: Build CSS with Tailwind
+# ============================================
+FROM node:20-slim as css-builder
+
+WORKDIR /css
+COPY package.json package-lock.json tailwind.config.js ./
+COPY static/input.css ./static/input.css
+COPY templates/ ./templates/
+RUN npm ci --ignore-scripts && npx tailwindcss -i static/input.css -o static/style.css --minify
+
+# ============================================
+# Stage 2: Build Python dependencies
 # ============================================
 FROM python:3.11-slim as builder
 
@@ -24,7 +35,7 @@ RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir fastapi 'uvicorn[standard]' jinja2 python-multipart
 
 # ============================================
-# Stage 2: Production image
+# Stage 3: Production image
 # ============================================
 FROM python:3.11-slim as production
 
@@ -63,6 +74,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY --chown=readtube:readtube *.py ./
 COPY --chown=readtube:readtube templates/ ./templates/
 COPY --chown=readtube:readtube static/ ./static/
+COPY --from=css-builder --chown=readtube:readtube /css/static/style.css ./static/style.css
 COPY --chown=readtube:readtube tests/ ./tests/
 
 # Create directories with proper permissions
@@ -85,11 +97,11 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import fetch_transcript; print('OK')" || exit 1
 
 # Expose port for potential web dashboard
-EXPOSE 5000
+EXPOSE 8000
 
 # Default entrypoint — run the web UI
 ENTRYPOINT ["python"]
-CMD ["-m", "uvicorn", "web:app", "--host", "0.0.0.0", "--port", "5000"]
+CMD ["-m", "uvicorn", "web:app", "--host", "0.0.0.0", "--port", "8000"]
 
 # ============================================
 # Usage Examples

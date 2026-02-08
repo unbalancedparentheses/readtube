@@ -1,12 +1,12 @@
 {% if jobs %}
-<div class="job-list">
-    <h2 class="job-heading">Active Jobs</h2>
+<div class="mb-6 px-5 py-4 bg-violet-50 border border-violet-200 rounded-xl">
+    <h2 class="text-[0.7rem] font-bold uppercase tracking-widest text-violet-600 mb-3">Active Jobs</h2>
     {% for job in jobs %}
-    <div class="job-item">
+    <div class="flex items-center gap-3 py-1.5 text-sm">
         <span class="job-spinner"></span>
-        <span class="job-type">{{ job.job_type }}</span>
+        <span class="text-xs font-medium text-stone-500">{{ job.job_type }}</span>
         {% if job.article_title %}
-        <span class="job-title">{{ job.article_title[:50] }}{% if job.article_title|length > 50 %}...{% endif %}</span>
+        <span class="flex-1 truncate text-ink">{{ job.article_title[:50] }}{% if job.article_title|length > 50 %}...{% endif %}</span>
         {% endif %}
         <span class="badge badge-{{ job.status }}">{{ job.status }}</span>
     </div>

@@ -5,6 +5,9 @@ pkgs.mkShell {
     # Python
     python312
 
+    # Node.js (for Tailwind CSS build)
+    nodejs_20
+
     # WeasyPrint system dependencies
     pango
     cairo
@@ -33,6 +36,8 @@ pkgs.mkShell {
   shellHook = ''
     echo "Readtube development environment"
     echo "Run 'make install' to install Python dependencies"
+    echo "Run 'make css' to build Tailwind CSS"
+    echo "Run 'make run' to start the web UI"
 
     # Set up library paths for WeasyPrint
     export GI_TYPELIB_PATH="${pkgs.pango}/lib/girepository-1.0:${pkgs.gdk-pixbuf}/lib/girepository-1.0"
@@ -52,6 +57,12 @@ pkgs.mkShell {
       done
     else
       echo "Ollama server already running"
+    fi
+
+    # Ensure default model is available
+    if ! ollama list 2>/dev/null | grep -q "llama3.2"; then
+      echo "Pulling llama3.2 model (first time setup)..."
+      ollama pull llama3.2 &
     fi
   '';
 }

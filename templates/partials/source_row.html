@@ -1,8 +1,11 @@
-<tr id="source-{{ source.id }}">
-    <td>{{ source.name or '(unnamed)' }}</td>
-    <td class="url-cell"><a href="{{ source.url }}" target="_blank" rel="noopener">{{ source.url[:60] }}{% if source.url|length > 60 %}...{% endif %}</a></td>
-    <td><span class="badge badge-{{ source.source_type }}">{{ source.source_type }}</span></td>
-    <td>
-        <button hx-delete="/sources/{{ source.id }}" hx-target="#source-{{ source.id }}" hx-swap="outerHTML" class="btn btn-sm btn-danger">Delete</button>
+<tr id="source-{{ source.id }}" class="hover:bg-stone-50 transition-colors">
+    <td class="px-4 py-3 text-sm border-b border-sand/50">{{ source.name or '(unnamed)' }}</td>
+    <td class="px-4 py-3 text-sm border-b border-sand/50 max-w-sm truncate"><a href="{{ source.url }}" target="_blank" rel="noopener" class="text-violet-600 hover:text-violet-800 no-underline hover:underline">{{ source.url[:60] }}{% if source.url|length > 60 %}...{% endif %}</a></td>
+    <td class="px-4 py-3 text-sm border-b border-sand/50"><span class="badge badge-{{ source.source_type }}">{{ source.source_type }}</span></td>
+    <td class="px-4 py-3 text-sm border-b border-sand/50">
+        <div class="flex items-center gap-2">
+            <button hx-post="/sources/{{ source.id }}/toggle-auto-fetch" hx-target="#source-{{ source.id }}" hx-swap="outerHTML" class="btn btn-sm {% if source.auto_fetch %}btn-primary{% endif %}" title="Toggle auto-fetch">{% if source.auto_fetch %}Auto: ON{% else %}Auto: OFF{% endif %}</button>
+            <button hx-delete="/sources/{{ source.id }}" hx-target="#source-{{ source.id }}" hx-swap="outerHTML" hx-confirm="Delete this source?" class="btn btn-sm btn-danger" aria-label="Delete source {{ source.name or source.url[:30] }}">Delete</button>
+        </div>
     </td>
 </tr>

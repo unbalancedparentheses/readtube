@@ -4,24 +4,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Readtube{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
     {% block head %}{% endblock %}
 </head>
-<body>
-    <a href="#main-content" class="skip-link">Skip to content</a>
-    <nav class="navbar" aria-label="Main navigation">
-        <div class="nav-inner">
-            <a href="/" class="nav-brand">Readtube</a>
-            <div class="nav-links">
-                <a href="/" class="{% if active == 'dashboard' %}active{% endif %}">Dashboard</a>
-                <a href="/sources" class="{% if active == 'sources' %}active{% endif %}">Sources</a>
-                <a href="/settings" class="{% if active == 'settings' %}active{% endif %}">Settings</a>
-                <a href="/feed/rss" class="nav-rss" title="RSS Feed" aria-label="RSS Feed">RSS</a>
+<body class="bg-page font-sans text-ink antialiased">
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-0 focus:left-0 focus:z-[999] focus:px-4 focus:py-2 focus:bg-yt focus:text-white focus:font-semibold focus:rounded-br-lg">Skip to content</a>
+    <nav class="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-sand" aria-label="Main navigation">
+        <div class="max-w-6xl mx-auto px-6 flex items-center justify-between h-14">
+            <a href="/" class="flex items-center gap-2.5 text-lg font-extrabold tracking-tight text-ink no-underline hover:no-underline">
+                <span class="inline-block w-6 h-6 rounded-md bg-gradient-to-br from-violet-500 to-purple-600"></span>
+                Readtube
+            </a>
+            <div class="flex gap-1">
+                <a href="/" class="text-sm font-medium px-3 py-1.5 rounded-lg transition-colors {% if active == 'dashboard' %}text-violet-700 bg-violet-50{% else %}text-stone-500 hover:text-ink hover:bg-stone-100{% endif %}">Dashboard</a>
+                <a href="/sources" class="text-sm font-medium px-3 py-1.5 rounded-lg transition-colors {% if active == 'sources' %}text-violet-700 bg-violet-50{% else %}text-stone-500 hover:text-ink hover:bg-stone-100{% endif %}">Sources</a>
+                <a href="/settings" class="text-sm font-medium px-3 py-1.5 rounded-lg transition-colors {% if active == 'settings' %}text-violet-700 bg-violet-50{% else %}text-stone-500 hover:text-ink hover:bg-stone-100{% endif %}">Settings</a>
+                <a href="/feed/rss" class="text-sm font-medium px-3 py-1.5 rounded-lg text-stone-400 hover:text-stone-600 transition-colors" title="RSS Feed" aria-label="RSS Feed">RSS</a>
             </div>
         </div>
     </nav>
-    <main class="container" id="main-content">
+    <main class="max-w-6xl mx-auto px-6 py-8" id="main-content">
         {% block content %}{% endblock %}
     </main>
 </body>

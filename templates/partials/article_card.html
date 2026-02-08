@@ -1,27 +1,30 @@
-<div class="article-card" id="article-{{ article.video_id }}" role="article">
+<div class="flex items-center gap-4 p-4 bg-white rounded-xl border border-sand hover:shadow-md hover:border-stone-300 transition-all" id="article-{{ article.video_id }}" role="article">
     {% if article.thumbnail %}
-    <img src="{{ article.thumbnail }}" alt="Thumbnail for {{ article.title or article.video_id }}" class="article-thumb" loading="lazy">
+    <img src="{{ article.thumbnail }}" alt="Thumbnail for {{ article.title or article.video_id }}" class="w-28 h-16 rounded-lg object-cover flex-shrink-0 bg-stone-100" loading="lazy">
     {% else %}
-    <div class="article-thumb article-thumb-placeholder" role="img" aria-label="No thumbnail available"></div>
+    <div class="w-28 h-16 rounded-lg flex-shrink-0 bg-stone-100 border border-dashed border-stone-300" role="img" aria-label="No thumbnail available"></div>
     {% endif %}
-    <div class="article-info">
-        <h3 class="article-title">
+    <div class="flex-1 min-w-0">
+        <h3 class="text-sm font-semibold text-ink truncate">
             {% if article.status == 'done' %}
-            <a href="/article/{{ article.video_id }}">{{ article.title or article.video_id }}</a>
+            <a href="/article/{{ article.video_id }}" class="text-ink hover:text-violet-700 no-underline transition-colors">{{ article.title or article.video_id }}</a>
             {% else %}
             {{ article.title or article.video_id }}
             {% endif %}
         </h3>
-        <p class="article-channel">{{ article.channel }}</p>
+        <p class="text-xs text-stone-500 mt-0.5 mb-1.5">{{ article.channel }}</p>
         <span class="badge badge-{{ article.status }}">{{ article.status }}</span>
         {% if article.error %}
-        <p class="article-error" title="{{ article.error }}">{{ article.error[:80] }}{% if article.error|length > 80 %}...{% endif %}</p>
+        <p class="text-xs text-red-500 mt-1 truncate" title="{{ article.error }}">{{ article.error[:80] }}{% if article.error|length > 80 %}...{% endif %}</p>
         {% endif %}
     </div>
-    <div class="article-actions">
+    <div class="flex items-center gap-2 flex-shrink-0">
         {% if article.status == 'done' %}
         <a href="/article/{{ article.video_id }}" class="btn btn-sm btn-primary">Read</a>
         <a href="/article/{{ article.video_id }}/download?format=epub" class="btn btn-sm">EPUB</a>
+        <a href="/article/{{ article.video_id }}/download?format=md" class="btn btn-sm">MD</a>
+        <button hx-post="/article/{{ article.video_id }}/send-kindle" hx-target="#kindle-status-{{ article.video_id }}" hx-swap="innerHTML" class="btn btn-sm">Kindle</button>
+        <span id="kindle-status-{{ article.video_id }}"></span>
         {% endif %}
         {% if article.status in ('done', 'error') %}
         <button hx-post="/article/{{ article.video_id }}/regenerate" hx-target="#article-{{ article.video_id }}" hx-swap="outerHTML" hx-confirm="Regenerate this article?" class="btn btn-sm" aria-label="Regenerate article">Redo</button>

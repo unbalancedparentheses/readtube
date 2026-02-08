@@ -3,13 +3,22 @@
 {% block title %}Readtube — Sources{% endblock %}
 
 {% block content %}
-<h1>Sources</h1>
-<p class="subtitle">Track YouTube channels and playlists to automatically fetch new videos.</p>
+<h1 class="text-2xl font-bold tracking-tight text-ink">Sources</h1>
+<p class="text-stone-500 text-sm mb-6">Track YouTube channels and playlists to automatically fetch new videos.</p>
 
-<form hx-post="/sources/add" hx-target="#sources-content" hx-swap="innerHTML" hx-select="#sources-content" class="add-form" style="margin-bottom: 2rem;">
-    <input type="text" name="url" placeholder="Channel or playlist URL..." required class="url-input">
-    <input type="text" name="name" placeholder="Name (optional)" class="name-input">
+<form hx-post="/sources/add" hx-target="#sources-content" hx-swap="innerHTML" hx-select="#sources-content" class="flex gap-3 mb-4">
+    <input type="text" name="url" placeholder="Channel or playlist URL..." required
+           class="flex-1 px-4 py-2.5 text-sm border border-sand rounded-xl bg-white text-ink placeholder-stone-400 outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100">
+    <input type="text" name="name" placeholder="Name (optional)"
+           class="w-48 px-4 py-2.5 text-sm border border-sand rounded-xl bg-white text-ink placeholder-stone-400 outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100">
     <button type="submit" class="btn btn-primary">Add Source</button>
+</form>
+
+<form hx-post="/sources/import-opml" hx-target="#opml-result" hx-swap="innerHTML" hx-encoding="multipart/form-data" class="flex items-center gap-3 mb-8">
+    <input type="file" name="file" accept=".opml,.xml" required
+           class="text-sm text-stone-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border file:border-sand file:text-xs file:font-medium file:bg-white file:text-ink file:cursor-pointer hover:file:bg-stone-50">
+    <button type="submit" class="btn btn-sm">Import OPML</button>
+    <div id="opml-result" class="text-sm"></div>
 </form>
 
 <div id="sources-content">
@@ -18,30 +27,23 @@
 {% endif %}
 
 {% if sources %}
-<table class="sources-table">
+<table class="w-full">
     <thead>
         <tr>
-            <th>Name</th>
-            <th>URL</th>
-            <th>Type</th>
-            <th></th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-stone-500 uppercase tracking-wider border-b border-sand">Name</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-stone-500 uppercase tracking-wider border-b border-sand">URL</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-stone-500 uppercase tracking-wider border-b border-sand">Type</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-stone-500 uppercase tracking-wider border-b border-sand">Actions</th>
         </tr>
     </thead>
     <tbody>
     {% for source in sources %}
-        <tr id="source-{{ source.id }}">
-            <td>{{ source.name or '(unnamed)' }}</td>
-            <td class="url-cell"><a href="{{ source.url }}" target="_blank" rel="noopener">{{ source.url[:60] }}{% if source.url|length > 60 %}...{% endif %}</a></td>
-            <td><span class="badge badge-{{ source.source_type }}">{{ source.source_type }}</span></td>
-            <td>
-                <button hx-delete="/sources/{{ source.id }}" hx-target="#source-{{ source.id }}" hx-swap="outerHTML" hx-confirm="Delete this source?" class="btn btn-sm btn-danger" aria-label="Delete source {{ source.name or source.url[:30] }}">Delete</button>
-            </td>
-        </tr>
+        {% include "partials/source_row.html" %}
     {% endfor %}
     </tbody>
 </table>
 {% else %}
-<p class="empty-state">No sources yet. Add a channel or playlist above.</p>
+<p class="text-center text-stone-400 py-16 text-sm">No sources yet. Add a channel or playlist above.</p>
 {% endif %}
 </div>
 {% endblock %}

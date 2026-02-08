@@ -19,6 +19,18 @@ services:
       retries: 5
       start_period: 10s
 
+  # Pull default model on first run
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: readtube-ollama-pull
+    entrypoint: ["ollama", "pull", "llama3.2"]
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+
   # Main Readtube web UI
   readtube:
     build:
@@ -26,7 +38,7 @@ services:
       dockerfile: Dockerfile
     container_name: readtube
     ports:
-      - "5000:5000"
+      - "8000:8000"
     volumes:
       - ./output:/app/output
       - ./cache:/app/cache
