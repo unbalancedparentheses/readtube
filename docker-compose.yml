@@ -1,10 +1,24 @@
-version: '3.8'
-
 # ============================================
 # Readtube Docker Compose Configuration
 # ============================================
 
 services:
+  # Ollama local LLM
+  ollama:
+    image: ollama/ollama:latest
+    container_name: readtube-ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   # Main Readtube web UI
   readtube:
     build:
@@ -21,44 +35,11 @@ services:
       - PYTHONUNBUFFERED=1
       - OUTPUT_DIR=/app/output
       - CACHE_DIR=/app/cache
-    restart: unless-stopped
-
-  # Ollama service for local LLM (optional)
-  ollama:
-    image: ollama/ollama:latest
-    container_name: readtube-ollama
-    volumes:
-      - ollama_data:/root/.ollama
-    ports:
-      - "11434:11434"
-    restart: unless-stopped
-    profiles:
-      - llm
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-
-  # Readtube with Ollama integration
-  readtube-with-ollama:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: readtube-ollama-client
-    volumes:
-      - ./output:/app/output
-      - ./cache:/app/cache
-    environment:
-      - PYTHONUNBUFFERED=1
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_MODEL=llama3.2
     depends_on:
-      - ollama
-    profiles:
-      - llm
+      ollama:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
@@ -68,22 +49,14 @@ volumes:
 # Usage Examples
 # ============================================
 #
-# Basic usage (fetch transcript):
-#   docker compose run --rm readtube fetch_transcript.py "https://youtube.com/watch?v=VIDEO_ID"
+# Start everything (Ollama + web UI):
+#   docker compose up -d
 #
-# Fetch and save to JSON:
-#   docker compose run --rm readtube fetch_transcript.py "https://youtube.com/watch?v=VIDEO_ID" --output-json /app/output/video.json
-#
-# Start with Ollama for local LLM:
-#   docker compose --profile llm up -d ollama
-#   # Wait for Ollama to start, then pull a model:
+# Pull an Ollama model (first time):
 #   docker compose exec ollama ollama pull llama3.2
-#   # Generate article:
-#   docker compose --profile llm run --rm readtube-with-ollama write_article.py /app/output/video.json
 #
-# With Claude API:
-#   ANTHROPIC_API_KEY=your-key docker compose run --rm \
-#     -e ANTHROPIC_API_KEY readtube write_article.py /app/output/video.json
+# With Claude API (set key in environment):
+#   ANTHROPIC_API_KEY=your-key docker compose up -d
 #
 # Batch processing:
 #   docker compose run --rm -v $(pwd)/config.yaml:/app/config.yaml:ro \
