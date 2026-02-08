@@ -5,9 +5,22 @@
 {% block content %}
 <section class="add-url-section">
     <h1>Add a YouTube video, playlist, or channel</h1>
-    <form hx-post="/add" hx-target="#article-list" hx-swap="innerHTML" class="add-form">
-        <input type="text" name="url" placeholder="Paste a YouTube URL..." required autofocus class="url-input">
+    <form hx-post="/add" hx-target="#article-list" hx-swap="innerHTML" hx-indicator="#add-spinner" class="add-form">
+        <input type="text" name="url" placeholder="Paste a YouTube URL..." required autofocus class="url-input" aria-label="YouTube URL">
         <button type="submit" class="btn btn-primary">Add</button>
+        <span id="add-spinner" class="htmx-indicator job-spinner"></span>
+    </form>
+</section>
+
+<section class="filter-section">
+    <form class="filter-form" hx-get="/api/articles" hx-target="#article-list" hx-swap="innerHTML" hx-trigger="keyup changed delay:300ms from:#search-input, change from:#status-filter">
+        <input type="search" name="q" id="search-input" placeholder="Search articles..." value="{{ search_query or '' }}" class="search-input" aria-label="Search articles">
+        <select name="status" id="status-filter" class="status-filter" aria-label="Filter by status">
+            <option value="" {% if not status_filter %}selected{% endif %}>All statuses</option>
+            <option value="done" {% if status_filter == 'done' %}selected{% endif %}>Done</option>
+            <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+            <option value="error" {% if status_filter == 'error' %}selected{% endif %}>Error</option>
+        </select>
     </form>
 </section>
 

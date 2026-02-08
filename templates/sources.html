@@ -1,19 +1,21 @@
 {% extends "base.html" %}
 {% set active = "sources" %}
 {% block title %}Readtube — Sources{% endblock %}
-{% block head %}
-<script src="https://unpkg.com/htmx.org@1.9.12"></script>
-{% endblock %}
 
 {% block content %}
 <h1>Sources</h1>
 <p class="subtitle">Track YouTube channels and playlists to automatically fetch new videos.</p>
 
-<form hx-post="/sources/add" hx-target="body" hx-swap="innerHTML" class="add-form" style="margin-bottom: 2rem;">
+<form hx-post="/sources/add" hx-target="#sources-content" hx-swap="innerHTML" hx-select="#sources-content" class="add-form" style="margin-bottom: 2rem;">
     <input type="text" name="url" placeholder="Channel or playlist URL..." required class="url-input">
     <input type="text" name="name" placeholder="Name (optional)" class="name-input">
     <button type="submit" class="btn btn-primary">Add Source</button>
 </form>
+
+<div id="sources-content">
+{% if error %}
+<div class="alert alert-error">{{ error }}</div>
+{% endif %}
 
 {% if sources %}
 <table class="sources-table">
@@ -32,7 +34,7 @@
             <td class="url-cell"><a href="{{ source.url }}" target="_blank" rel="noopener">{{ source.url[:60] }}{% if source.url|length > 60 %}...{% endif %}</a></td>
             <td><span class="badge badge-{{ source.source_type }}">{{ source.source_type }}</span></td>
             <td>
-                <button hx-delete="/sources/{{ source.id }}" hx-target="#source-{{ source.id }}" hx-swap="outerHTML" class="btn btn-sm btn-danger">Delete</button>
+                <button hx-delete="/sources/{{ source.id }}" hx-target="#source-{{ source.id }}" hx-swap="outerHTML" hx-confirm="Delete this source?" class="btn btn-sm btn-danger" aria-label="Delete source {{ source.name or source.url[:30] }}">Delete</button>
             </td>
         </tr>
     {% endfor %}
@@ -41,4 +43,5 @@
 {% else %}
 <p class="empty-state">No sources yet. Add a channel or playlist above.</p>
 {% endif %}
+</div>
 {% endblock %}

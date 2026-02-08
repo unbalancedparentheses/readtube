@@ -251,11 +251,11 @@ class TestEdgeCases:
     def test_invalid_video_url(self):
         """Test handling of invalid video URL."""
         from get_videos import get_video_info
+        from errors import VideoNotFoundError
 
-        result = get_video_info("https://www.youtube.com/watch?v=INVALID_ID_12345")
-
-        # Should return None for invalid videos
-        assert result is None
+        # Should raise VideoNotFoundError for unavailable videos
+        with pytest.raises(VideoNotFoundError):
+            get_video_info("https://www.youtube.com/watch?v=INVALID_ID_12345")
 
     def test_empty_article_list(self):
         """Test EPUB creation with empty article list."""

@@ -203,9 +203,18 @@ def article_upsert(
         return cur.fetchone()["id"]
 
 
+_ARTICLE_COLUMNS = frozenset({
+    "title", "channel", "description", "thumbnail", "duration", "url",
+    "transcript", "article_md", "article_html", "status", "source_id", "error",
+})
+
+
 def article_update(video_id: str, **fields: Any) -> None:
     if not fields:
         return
+    bad = set(fields) - _ARTICLE_COLUMNS
+    if bad:
+        raise ValueError(f"Invalid article fields: {bad}")
     fields["updated_at"] = time.time()
     set_clause = ", ".join(f"{k} = ?" for k in fields)
     vals = list(fields.values()) + [video_id]
@@ -220,12 +229,22 @@ def article_get(video_id: str) -> Optional[Dict[str, Any]]:
         return dict(row) if row else None
 
 
-def article_list(status: Optional[str] = None) -> List[Dict[str, Any]]:
+def article_list(
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    conditions: List[str] = []
+    params: List[Any] = []
+    if status:
+        conditions.append("status = ?")
+        params.append(status)
+    if search:
+        conditions.append("(title LIKE ? OR channel LIKE ?)")
+        like = f"%{search}%"
+        params.extend([like, like])
+    where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
     with _tx() as cur:
-        if status:
-            cur.execute("SELECT * FROM articles WHERE status = ? ORDER BY created_at DESC", (status,))
-        else:
-            cur.execute("SELECT * FROM articles ORDER BY created_at DESC")
+        cur.execute(f"SELECT * FROM articles{where} ORDER BY created_at DESC", params)
         return [dict(row) for row in cur.fetchall()]
 
 
@@ -246,9 +265,15 @@ def job_create(job_type: str, article_id: Optional[int] = None, source_id: Optio
         return cur.lastrowid
 
 
+_JOB_COLUMNS = frozenset({"status", "error"})
+
+
 def job_update(job_id: int, **fields: Any) -> None:
     if not fields:
         return
+    bad = set(fields) - _JOB_COLUMNS
+    if bad:
+        raise ValueError(f"Invalid job fields: {bad}")
     fields["updated_at"] = time.time()
     set_clause = ", ".join(f"{k} = ?" for k in fields)
     vals = list(fields.values()) + [job_id]
@@ -276,6 +301,29 @@ def job_list_active() -> List[Dict[str, Any]]:
             "WHERE j.status IN ('pending', 'running') ORDER BY j.created_at ASC"
         )
         return [dict(row) for row in cur.fetchall()]
+
+
+def job_recover_stuck(timeout_seconds: float = 600) -> int:
+    """Reset jobs stuck in 'running' for longer than timeout back to 'pending'."""
+    cutoff = time.time() - timeout_seconds
+    with _tx() as cur:
+        cur.execute(
+            "UPDATE jobs SET status = 'pending', updated_at = ? "
+            "WHERE status = 'running' AND updated_at < ?",
+            (time.time(), cutoff),
+        )
+        return cur.rowcount
+
+
+def job_cleanup(max_age_seconds: float = 604800) -> int:
+    """Delete completed/errored jobs older than max_age (default 7 days)."""
+    cutoff = time.time() - max_age_seconds
+    with _tx() as cur:
+        cur.execute(
+            "DELETE FROM jobs WHERE status IN ('done', 'error') AND updated_at < ?",
+            (cutoff,),
+        )
+        return cur.rowcount
 
 
 def job_list_all() -> List[Dict[str, Any]]:

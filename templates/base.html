@@ -9,18 +9,19 @@
     {% block head %}{% endblock %}
 </head>
 <body>
-    <nav class="navbar">
+    <a href="#main-content" class="skip-link">Skip to content</a>
+    <nav class="navbar" aria-label="Main navigation">
         <div class="nav-inner">
             <a href="/" class="nav-brand">Readtube</a>
             <div class="nav-links">
                 <a href="/" class="{% if active == 'dashboard' %}active{% endif %}">Dashboard</a>
                 <a href="/sources" class="{% if active == 'sources' %}active{% endif %}">Sources</a>
                 <a href="/settings" class="{% if active == 'settings' %}active{% endif %}">Settings</a>
-                <a href="/feed/rss" class="nav-rss" title="RSS Feed">RSS</a>
+                <a href="/feed/rss" class="nav-rss" title="RSS Feed" aria-label="RSS Feed">RSS</a>
             </div>
         </div>
     </nav>
-    <main class="container">
+    <main class="container" id="main-content">
         {% block content %}{% endblock %}
     </main>
 </body>

@@ -38,20 +38,44 @@ def start(workers: int = 2) -> None:
     logger.info("Background worker started with %d workers", workers)
 
 
-def stop() -> None:
-    """Shut down the worker pool gracefully."""
+def stop(timeout: float = 5) -> None:
+    """Shut down the worker pool, waiting briefly for in-flight work."""
     global _running, _executor
-    _running = False  # noqa: F841 — used by _poll_loop
+    _running = False
     if _executor:
-        _executor.shutdown(wait=False)
+        _executor.shutdown(wait=True, cancel_futures=True)
         _executor = None
+    if _poll_thread and _poll_thread.is_alive():
+        _poll_thread.join(timeout=timeout)
     logger.info("Background worker stopped")
+
+
+_STUCK_CHECK_INTERVAL: float = 120  # check for stuck jobs every 2 minutes
+_CLEANUP_INTERVAL: float = 3600  # clean old jobs every hour
 
 
 def _poll_loop() -> None:
     """Poll for pending jobs and submit them to the executor."""
+    last_stuck_check: float = 0
+    last_cleanup: float = 0
     while _running:
         try:
+            now = time.time()
+
+            # Periodically recover stuck jobs
+            if now - last_stuck_check > _STUCK_CHECK_INTERVAL:
+                recovered = db.job_recover_stuck()
+                if recovered:
+                    logger.info("Recovered %d stuck jobs", recovered)
+                last_stuck_check = now
+
+            # Periodically clean old completed/errored jobs
+            if now - last_cleanup > _CLEANUP_INTERVAL:
+                cleaned = db.job_cleanup()
+                if cleaned:
+                    logger.info("Cleaned up %d old jobs", cleaned)
+                last_cleanup = now
+
             job = db.job_next_pending()
             if job and _executor:
                 _executor.submit(_dispatch, job)

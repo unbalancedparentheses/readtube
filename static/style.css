@@ -28,6 +28,25 @@ body {
 a { color: var(--primary); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
+/* Visible focus ring for keyboard navigation */
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+/* Skip-to-content link */
+.skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    z-index: 999;
+    padding: 0.5rem 1rem;
+    background: var(--primary);
+    color: #fff;
+    font-weight: 600;
+}
+.skip-link:focus { left: 0; }
+
 /* ── Navbar ─────────────────────────────────────────── */
 .navbar {
     background: var(--surface);
@@ -142,6 +161,35 @@ a:hover { text-decoration: underline; }
     border-radius: var(--radius);
     background: var(--surface);
     outline: none;
+}
+
+/* ── Filter / Search ───────────────────────────────── */
+.filter-section {
+    margin-bottom: 1.25rem;
+}
+
+.filter-form {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.search-input {
+    flex: 1;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    outline: none;
+}
+.search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+
+.status-filter {
+    padding: 0.45rem 0.75rem;
+    font-size: 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
 }
 
 /* ── Badges ─────────────────────────────────────────── */
@@ -266,6 +314,11 @@ a:hover { text-decoration: underline; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* HTMX loading indicator — hidden by default, shown during requests */
+.htmx-indicator { display: none; }
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator { display: inline-block; }
+
 .job-type {
     font-weight: 500;
     color: var(--text-muted);
@@ -357,6 +410,12 @@ a:hover { text-decoration: underline; }
     background: #dcfce7;
     color: #15803d;
     border: 1px solid #bbf7d0;
+}
+
+.alert-error {
+    background: #fee2e2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
 }
 
 /* ── Empty state ────────────────────────────────────── */

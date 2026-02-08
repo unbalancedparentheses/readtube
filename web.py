@@ -50,6 +50,15 @@ _YT_VIDEO_RE = re.compile(
 _YT_PLAYLIST_RE = re.compile(r"[?&]list=([A-Za-z0-9_-]+)")
 _YT_CHANNEL_RE = re.compile(r"youtube\.com/(@[\w.-]+)")
 
+_VALID_YT_RE = re.compile(
+    r"^https?://(www\.)?(youtube\.com|youtu\.be|m\.youtube\.com)/"
+)
+
+
+def _is_valid_youtube_url(url: str) -> bool:
+    """Check that the URL looks like a YouTube URL."""
+    return bool(_VALID_YT_RE.match(url))
+
 
 def _classify_url(url: str) -> str:
     """Return 'video', 'playlist', or 'channel' based on URL patterns."""
@@ -73,14 +82,22 @@ def _settings_context() -> Dict[str, Any]:
 # ── Page routes ───────────────────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
-async def dashboard(request: Request) -> Response:
-    articles = db.article_list()
+async def dashboard(
+    request: Request,
+    q: str = Query("", alias="q"),
+    status: str = Query("", alias="status"),
+) -> Response:
+    search = q.strip() or None
+    status_filter = status.strip() or None
+    articles = db.article_list(status=status_filter, search=search)
     jobs = db.job_list_active()
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "articles": articles,
         "jobs": jobs,
         "settings": _settings_context(),
+        "search_query": q,
+        "status_filter": status,
     })
 
 
@@ -91,6 +108,16 @@ async def add_url(request: Request, url: str = Form(...)) -> Response:
         return templates.TemplateResponse("partials/article_list.html", {
             "request": request,
             "articles": db.article_list(),
+        })
+
+    if not _is_valid_youtube_url(url):
+        articles = db.article_list()
+        jobs = db.job_list_active()
+        return templates.TemplateResponse("partials/article_list.html", {
+            "request": request,
+            "articles": articles,
+            "jobs": jobs,
+            "error": "Please enter a valid YouTube URL.",
         })
 
     source_type = _classify_url(url)
@@ -208,7 +235,10 @@ async def sources_page(request: Request) -> Response:
 @app.post("/sources/add", response_class=HTMLResponse)
 async def sources_add(request: Request, url: str = Form(...), name: str = Form("")) -> Response:
     url = url.strip()
-    if url:
+    error: Optional[str] = None
+    if url and not _is_valid_youtube_url(url):
+        error = "Please enter a valid YouTube URL."
+    elif url:
         source_type = _classify_url(url)
         src_id = db.source_add(url, source_type=source_type, name=name.strip())
         db.job_create("fetch_source", source_id=src_id)
@@ -217,6 +247,7 @@ async def sources_add(request: Request, url: str = Form(...), name: str = Form("
         "request": request,
         "sources": sources,
         "settings": _settings_context(),
+        "error": error,
     })
 
 
@@ -258,8 +289,14 @@ async def settings_save(request: Request) -> Response:
 # ── HTMX API endpoints ───────────────────────────────────
 
 @app.get("/api/articles", response_class=HTMLResponse)
-async def api_articles(request: Request) -> Response:
-    articles = db.article_list()
+async def api_articles(
+    request: Request,
+    q: str = Query("", alias="q"),
+    status: str = Query("", alias="status"),
+) -> Response:
+    search = q.strip() or None
+    status_filter = status.strip() or None
+    articles = db.article_list(status=status_filter, search=search)
     jobs = db.job_list_active()
     return templates.TemplateResponse("partials/article_list.html", {
         "request": request,

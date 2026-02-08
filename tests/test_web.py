@@ -623,3 +623,183 @@ class TestDownload:
         resp = client.get("/article/html1/download?format=html")
         assert resp.status_code == 200
         assert len(resp.content) > 100
+
+
+# ── Field Whitelisting Tests ─────────────────────────────
+
+class TestFieldWhitelisting:
+    """Tests for SQL injection prevention via field whitelisting."""
+
+    def test_article_update_valid_fields(self) -> None:
+        import web_db as db
+        db.article_upsert("wl1", title="Test")
+        db.article_update("wl1", status="done", title="Updated")
+        art = db.article_get("wl1")
+        assert art["status"] == "done"
+        assert art["title"] == "Updated"
+
+    def test_article_update_invalid_field_rejected(self) -> None:
+        import web_db as db
+        db.article_upsert("wl2", title="Test")
+        with pytest.raises(ValueError, match="Invalid article fields"):
+            db.article_update("wl2", status="done", malicious_field="DROP TABLE")
+
+    def test_job_update_valid_fields(self) -> None:
+        import web_db as db
+        art_id = db.article_upsert("wl3", title="Test")
+        job_id = db.job_create("fetch_video", article_id=art_id)
+        db.job_update(job_id, status="done")
+        all_jobs = db.job_list_all()
+        assert any(j["status"] == "done" for j in all_jobs)
+
+    def test_job_update_invalid_field_rejected(self) -> None:
+        import web_db as db
+        art_id = db.article_upsert("wl4", title="Test")
+        job_id = db.job_create("fetch_video", article_id=art_id)
+        with pytest.raises(ValueError, match="Invalid job fields"):
+            db.job_update(job_id, status="done", job_type="hacked")
+
+
+# ── URL Validation Tests ─────────────────────────────────
+
+class TestURLValidation:
+    """Tests for YouTube URL validation in routes."""
+
+    def test_is_valid_youtube_url(self) -> None:
+        from web import _is_valid_youtube_url
+        assert _is_valid_youtube_url("https://www.youtube.com/watch?v=abc123")
+        assert _is_valid_youtube_url("https://youtube.com/watch?v=abc123")
+        assert _is_valid_youtube_url("https://youtu.be/abc123")
+        assert _is_valid_youtube_url("https://m.youtube.com/watch?v=abc123")
+        assert _is_valid_youtube_url("http://youtube.com/watch?v=abc123")
+
+    def test_rejects_non_youtube_urls(self) -> None:
+        from web import _is_valid_youtube_url
+        assert not _is_valid_youtube_url("https://example.com/watch?v=abc")
+        assert not _is_valid_youtube_url("https://notyoutube.com/watch?v=abc")
+        assert not _is_valid_youtube_url("ftp://youtube.com/watch?v=abc")
+        assert not _is_valid_youtube_url("not a url at all")
+        assert not _is_valid_youtube_url("")
+
+    def test_add_invalid_url_returns_error(self, client: Any) -> None:
+        resp = client.post("/add", data={"url": "https://example.com/not-youtube"})
+        assert resp.status_code == 200
+        assert "valid YouTube URL" in resp.text
+        import web_db as db
+        assert len(db.article_list()) == 0
+
+    def test_sources_add_invalid_url_returns_error(self, client: Any) -> None:
+        resp = client.post("/sources/add", data={
+            "url": "https://example.com/bad",
+            "name": "Bad Source",
+        })
+        assert resp.status_code == 200
+        assert "valid YouTube URL" in resp.text
+        import web_db as db
+        assert len(db.source_list()) == 0
+
+
+# ── Stuck Job Recovery Tests ─────────────────────────────
+
+class TestJobRecovery:
+    """Tests for stuck job recovery and cleanup."""
+
+    def test_recover_stuck_jobs(self) -> None:
+        import web_db as db
+        art_id = db.article_upsert("stuck1", title="Stuck")
+        job_id = db.job_create("fetch_video", article_id=art_id)
+        # Claim the job (sets status to running)
+        db.job_next_pending()
+        # Manually backdate the updated_at to simulate a stuck job
+        with db._tx() as cur:
+            old_time = time.time() - 700  # 700 seconds ago (> 600 timeout)
+            cur.execute("UPDATE jobs SET updated_at = ? WHERE id = ?", (old_time, job_id))
+        # Now recover
+        recovered = db.job_recover_stuck(timeout_seconds=600)
+        assert recovered == 1
+        # Job should be pending again
+        job = db.job_next_pending()
+        assert job is not None
+
+    def test_no_recovery_for_recent_jobs(self) -> None:
+        import web_db as db
+        art_id = db.article_upsert("recent1", title="Recent")
+        db.job_create("fetch_video", article_id=art_id)
+        db.job_next_pending()  # claims it → running
+        recovered = db.job_recover_stuck(timeout_seconds=600)
+        assert recovered == 0
+
+    def test_cleanup_old_jobs(self) -> None:
+        import web_db as db
+        art_id = db.article_upsert("clean1", title="Cleanup")
+        job_id = db.job_create("fetch_video", article_id=art_id)
+        db.job_update(job_id, status="done")
+        # Backdate the job
+        with db._tx() as cur:
+            old_time = time.time() - 700000  # ~8 days ago
+            cur.execute("UPDATE jobs SET updated_at = ? WHERE id = ?", (old_time, job_id))
+        cleaned = db.job_cleanup(max_age_seconds=604800)
+        assert cleaned == 1
+        assert len(db.job_list_all()) == 0
+
+    def test_cleanup_preserves_recent_jobs(self) -> None:
+        import web_db as db
+        art_id = db.article_upsert("keep1", title="Keep")
+        job_id = db.job_create("fetch_video", article_id=art_id)
+        db.job_update(job_id, status="done")
+        cleaned = db.job_cleanup(max_age_seconds=604800)
+        assert cleaned == 0
+        assert len(db.job_list_all()) == 1
+
+
+# ── Search and Filter Tests ──────────────────────────────
+
+class TestSearchFilter:
+    """Tests for article search and status filter."""
+
+    def test_article_list_search_by_title(self) -> None:
+        import web_db as db
+        db.article_upsert("s1", title="Python Tutorial")
+        db.article_upsert("s2", title="Rust Guide")
+        db.article_upsert("s3", title="Python Advanced")
+        results = db.article_list(search="Python")
+        assert len(results) == 2
+
+    def test_article_list_search_by_channel(self) -> None:
+        import web_db as db
+        db.article_upsert("s4", title="Video 1", channel="TechChannel")
+        db.article_upsert("s5", title="Video 2", channel="FoodChannel")
+        results = db.article_list(search="Tech")
+        assert len(results) == 1
+        assert results[0]["channel"] == "TechChannel"
+
+    def test_article_list_search_and_status(self) -> None:
+        import web_db as db
+        db.article_upsert("s6", title="Done Python", status="pending")
+        db.article_upsert("s7", title="Pending Python", status="pending")
+        db.article_update("s6", status="done")
+        results = db.article_list(status="done", search="Python")
+        assert len(results) == 1
+        assert results[0]["video_id"] == "s6"
+
+    def test_article_list_search_no_results(self) -> None:
+        import web_db as db
+        db.article_upsert("s8", title="Something")
+        results = db.article_list(search="nonexistent")
+        assert len(results) == 0
+
+    def test_dashboard_search_via_route(self, client: Any) -> None:
+        import web_db as db
+        db.article_upsert("sr1", title="Searchable Video", channel="TestCh")
+        db.article_upsert("sr2", title="Other Video", channel="OtherCh")
+        resp = client.get("/?q=Searchable")
+        assert resp.status_code == 200
+        assert "Searchable Video" in resp.text
+
+    def test_api_articles_search(self, client: Any) -> None:
+        import web_db as db
+        db.article_upsert("api1", title="API Searchable", channel="Ch")
+        db.article_upsert("api2", title="API Other", channel="Ch")
+        resp = client.get("/api/articles?q=Searchable")
+        assert resp.status_code == 200
+        assert "API Searchable" in resp.text
