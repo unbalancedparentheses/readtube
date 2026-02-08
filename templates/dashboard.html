@@ -7,7 +7,7 @@
     <h1 class="text-2xl font-bold tracking-tight text-ink mb-3">Add a YouTube video, playlist, or channel</h1>
     <form hx-post="/add" hx-target="#article-list" hx-swap="innerHTML" hx-indicator="#add-spinner" class="flex gap-3">
         <input type="text" name="url" placeholder="Paste a YouTube URL..." required autofocus
-               class="flex-1 px-4 py-2.5 text-sm border border-sand rounded-xl bg-white text-ink placeholder-stone-400 outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+               class="flex-1 px-4 py-2.5 text-sm border border-sand rounded-xl bg-white text-ink placeholder-stone-400 outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100"
                aria-label="YouTube URL">
         <button type="submit" class="btn btn-primary">Add</button>
         <span id="add-spinner" class="htmx-indicator job-spinner self-center"></span>
@@ -17,7 +17,7 @@
 <section class="mb-6">
     <form class="flex gap-3" hx-get="/api/articles" hx-target="#article-list" hx-swap="innerHTML" hx-trigger="keyup changed delay:300ms from:#search-input, change from:#status-filter">
         <input type="search" name="q" id="search-input" placeholder="Search articles..." value="{{ search_query or '' }}"
-               class="flex-1 px-4 py-2 text-sm border border-sand rounded-xl bg-white text-ink placeholder-stone-400 outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+               class="flex-1 px-4 py-2 text-sm border border-sand rounded-xl bg-white text-ink placeholder-stone-400 outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100"
                aria-label="Search articles">
         <select name="status" id="status-filter"
                 class="px-4 py-2 text-sm border border-sand rounded-xl bg-white text-ink cursor-pointer"

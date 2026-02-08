@@ -31,10 +31,10 @@
             {{ article.article_html | safe }}
         </div>
         {% else %}
-        <p class="text-stone-400 italic">Article not yet generated. <a href="/" class="text-violet-600 hover:text-violet-800">Go back</a> and wait for processing to complete.</p>
+        <p class="text-stone-400 italic">Article not yet generated. <a href="/" class="text-red-600 hover:text-red-800">Go back</a> and wait for processing to complete.</p>
         {% endif %}
         <div class="pt-6 mt-10 border-t border-sand text-sm text-stone-400">
-            <p>Original video: <a href="{{ article.url }}" class="text-violet-600 hover:text-violet-800 no-underline hover:underline">{{ article.url }}</a></p>
+            <p>Original video: <a href="{{ article.url }}" class="text-red-600 hover:text-red-800 no-underline hover:underline">{{ article.url }}</a></p>
         </div>
     </article>
 </body>

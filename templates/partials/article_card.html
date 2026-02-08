@@ -7,7 +7,7 @@
     <div class="flex-1 min-w-0">
         <h3 class="text-sm font-semibold text-ink truncate">
             {% if article.status == 'done' %}
-            <a href="/article/{{ article.video_id }}" class="text-ink hover:text-violet-700 no-underline transition-colors">{{ article.title or article.video_id }}</a>
+            <a href="/article/{{ article.video_id }}" class="text-ink hover:text-red-700 no-underline transition-colors">{{ article.title or article.video_id }}</a>
             {% else %}
             {{ article.title or article.video_id }}
             {% endif %}
