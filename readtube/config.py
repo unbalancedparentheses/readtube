@@ -138,7 +138,8 @@ def resolve_llm_config(
         raise LLMError(
             "none",
             "no LLM backend configured.\n"
-            "  → set ANTHROPIC_API_KEY, or run: readtube config --init",
+            "  → run from Claude Code (uses the `claude` CLI automatically),\n"
+            "  → or set ANTHROPIC_API_KEY, or run: readtube config --init",
         )
 
     # Resolve API key from env var name in config
@@ -153,8 +154,9 @@ def resolve_llm_config(
         elif backend == "openai":
             api_key = os.environ.get("OPENAI_API_KEY")
 
-    # Default models per backend
-    if not model:
+    # Default models per backend. claude-code is intentionally absent: leave
+    # the model unset so the Claude Code CLI picks its own session default.
+    if not model and backend != "claude-code":
         defaults = {
             "ollama": "llama3.2",
             "claude": "claude-sonnet-4-20250514",
@@ -172,6 +174,13 @@ def resolve_llm_config(
 
 def _auto_detect_backend() -> Optional[str]:
     """Try to auto-detect an available LLM backend."""
+    # Prefer the host Claude Code session — zero-config when run from Claude Code.
+    if os.environ.get("CLAUDECODE"):
+        import shutil
+
+        if shutil.which("claude"):
+            return "claude-code"
+
     # Check if Ollama is running
     try:
         import urllib.request
@@ -214,7 +223,7 @@ DEFAULT_CONFIG_TOML = """\
 # See: https://github.com/unbalancedparentheses/readtube
 
 [llm]
-# backend = "ollama"          # ollama | claude | openai
+# backend = "ollama"          # ollama | claude | claude-code | openai
 # model = "llama3.2"          # model name
 # api_key_env = "ANTHROPIC_API_KEY"  # env var name (never the key itself)
 # url = "http://localhost:11434"     # for ollama or openai-compatible

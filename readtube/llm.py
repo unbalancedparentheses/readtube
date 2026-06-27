@@ -112,6 +112,70 @@ class OllamaBackend(LLMBackend):
                         break
 
 
+class ClaudeCodeBackend(LLMBackend):
+    """Uses the Claude Code CLI (`claude -p`) — no API key needed.
+
+    Active when readtube runs inside a Claude Code session (``CLAUDECODE`` is
+    set) and the ``claude`` binary is on PATH. This lets `readtube` borrow the
+    host Claude Code session's auth, so users running it from Claude Code get
+    article generation with zero configuration.
+    """
+
+    def __init__(self, model: Optional[str] = None, **kwargs):
+        # None → let the CLI choose its default model.
+        self.model = model
+
+    @staticmethod
+    def _binary() -> Optional[str]:
+        import shutil
+
+        return shutil.which("claude")
+
+    def is_available(self) -> bool:
+        return bool(os.environ.get("CLAUDECODE")) and self._binary() is not None
+
+    def generate(self, prompt, system_prompt=None, max_tokens=4096, temperature=0.7):
+        import subprocess
+
+        binary = self._binary()
+        if not binary:
+            raise LLMError("claude-code", "claude CLI not found on PATH")
+
+        cmd = [binary, "-p", prompt]
+        if system_prompt:
+            cmd += ["--system-prompt", system_prompt]
+        if self.model:
+            cmd += ["--model", self.model]
+
+        def _do():
+            # Drop the parent session id so the child runs as its own session.
+            env = dict(os.environ)
+            env.pop("CLAUDE_CODE_SESSION_ID", None)
+            try:
+                proc = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=600,
+                    env=env,
+                )
+            except subprocess.TimeoutExpired:
+                raise LLMError("claude-code", "claude CLI timed out")
+            except FileNotFoundError:
+                raise LLMError("claude-code", "claude CLI not found on PATH")
+
+            if proc.returncode != 0:
+                msg = proc.stderr.strip() or f"claude exited with code {proc.returncode}"
+                raise LLMError("claude-code", msg)
+
+            text = proc.stdout.strip()
+            if not text:
+                raise LLMError("claude-code", "empty response")
+            return text
+
+        return retry_with_backoff(_do, config=LLM_RETRY_CONFIG)
+
+
 class ClaudeBackend(LLMBackend):
     def __init__(self, api_key: Optional[str] = None, model: str = "claude-sonnet-4-20250514"):
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
@@ -264,6 +328,7 @@ class OpenAIBackend(LLMBackend):
 BACKENDS = {
     "ollama": OllamaBackend,
     "claude": ClaudeBackend,
+    "claude-code": ClaudeCodeBackend,
     "openai": OpenAIBackend,
 }
 

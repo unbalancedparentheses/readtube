@@ -159,7 +159,7 @@ def process_single(
 
     # 6. Resolve LLM backend
     backend_name, model_name, api_key = resolve_llm_config(config, cli_backend, cli_model)
-    progress(f"generating article ({backend_name}/{model_name})...", verbose)
+    progress(f"generating article ({backend_name}/{model_name or 'default'})...", verbose)
 
     backend = get_backend(backend_name, model=model_name, api_key=api_key, url=config.llm.url)
 

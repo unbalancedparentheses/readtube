@@ -71,19 +71,24 @@ readtube "https://youtube.com/watch?v=VIDEO_ID" --mode transcript
 
 ## LLM Backends
 
-Readtube supports three backends. It auto-detects which one to use:
+Readtube supports four backends. It auto-detects which one to use:
 
 | Backend | Setup | Best for |
 |---------|-------|----------|
+| **Claude Code** | None — run `readtube` from inside a [Claude Code](https://claude.com/claude-code) session | Zero-config, no API key |
 | **Ollama** | [Install Ollama](https://ollama.ai), run `ollama serve` | Free, private, local |
 | **Claude** | Set `ANTHROPIC_API_KEY` | Best quality |
 | **OpenAI** | Set `OPENAI_API_KEY` | GPT models |
 
-**Auto-detection order:** Ollama running locally → `ANTHROPIC_API_KEY` set → `OPENAI_API_KEY` set.
+When run from Claude Code, readtube shells out to the `claude` CLI and borrows
+the host session's auth — so it just works with no key or local model.
+
+**Auto-detection order:** Claude Code session (`CLAUDECODE` set + `claude` on PATH) → Ollama running locally → `ANTHROPIC_API_KEY` set → `OPENAI_API_KEY` set.
 
 Override with flags:
 
 ```bash
+readtube URL --backend claude-code                 # uses the `claude` CLI; --model optional
 readtube URL --backend claude --model claude-sonnet-4-20250514
 readtube URL --backend ollama --model llama3.2
 readtube URL --backend openai --model gpt-4o
@@ -149,7 +154,7 @@ Config lives at `~/.config/readtube/config.toml`:
 
 ```toml
 [llm]
-backend = "ollama"           # ollama | claude | openai
+backend = "ollama"           # ollama | claude | claude-code | openai
 model = "llama3.2"
 # api_key_env = "ANTHROPIC_API_KEY"  # env var name, never the key itself
 
