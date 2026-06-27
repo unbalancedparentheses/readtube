@@ -9,7 +9,7 @@ from typing import Optional
 from .config import Config, init_config, print_config, progress
 from .errors import ReadtubeError, EXIT_INVALID_ARGS, die
 
-SUBCOMMANDS = {"playlist", "batch", "config", "cache"}
+SUBCOMMANDS = {"playlist", "batch", "config", "cache", "watch"}
 
 EPILOG = """\
 examples:
@@ -25,6 +25,9 @@ examples:
   readtube config --init                             # create config file
   readtube cache stats                               # cache info
   readtube cache clear                               # wipe cache
+  readtube watch --init                              # create watch config
+  readtube watch --dry-run                           # discover, don't process
+  readtube watch                                     # discover and write articles
 """
 
 
@@ -88,6 +91,20 @@ def _build_cache_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _build_watch_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="readtube watch")
+    parser.add_argument("--init", action="store_true", help="create starter watch.toml")
+    parser.add_argument("--config", help="path to watch.toml (default: ~/.config/readtube/watch.toml)")
+    parser.add_argument("--dry-run", action="store_true", help="discover only, no LLM, no state update")
+    parser.add_argument("--print-urls", action="store_true", help="print matching URLs to stdout, no processing")
+    parser.add_argument("--discover", action="store_true", help="search YouTube for hits on untrusted channels (for curation)")
+    parser.add_argument("--backend", choices=["ollama", "claude", "openai"], help="LLM backend")
+    parser.add_argument("--model", help="model name")
+    parser.add_argument("-v", "--verbose", action="store_true", help="show progress even when piping")
+    parser.add_argument("-q", "--quiet", action="store_true", help="suppress all progress")
+    return parser
+
+
 def main(argv: Optional[list[str]] = None) -> None:
     args_list = argv if argv is not None else sys.argv[1:]
 
@@ -117,6 +134,11 @@ def main(argv: Optional[list[str]] = None) -> None:
         elif first == "cache":
             args = _build_cache_parser().parse_args(args_list[1:])
             _cmd_cache(args)
+
+        elif first == "watch":
+            args = _build_watch_parser().parse_args(args_list[1:])
+            verbose = _should_show_progress(args)
+            _cmd_watch(args, verbose)
 
         elif first in ("-h", "--help"):
             _build_single_parser().print_help()
@@ -260,6 +282,24 @@ def _cmd_config(args) -> None:
     else:
         config = Config.load()
         print_config(config)
+
+
+def _cmd_watch(args, verbose: bool) -> None:
+    from .watch import init_watch_config, run_watch
+
+    if args.init:
+        init_watch_config()
+        return
+
+    run_watch(
+        config_path=args.config,
+        dry_run=args.dry_run,
+        print_urls=args.print_urls,
+        do_discover=args.discover,
+        verbose=verbose,
+        cli_backend=args.backend,
+        cli_model=args.model,
+    )
 
 
 def _cmd_cache(args) -> None:
